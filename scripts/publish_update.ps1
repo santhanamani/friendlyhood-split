@@ -48,8 +48,12 @@ try {
 
     flutter build apk --release
 
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
     & $ghCommand release view $releaseTag --repo $repository *> $null
-    if ($LASTEXITCODE -eq 0) {
+    $releaseExists = $LASTEXITCODE -eq 0
+    $ErrorActionPreference = $previousErrorActionPreference
+    if ($releaseExists) {
         & $ghCommand release upload $releaseTag $apkSource --repo $repository --clobber
     } else {
         & $ghCommand release create $releaseTag $apkSource --repo $repository --title "friendlyhood-split $Version" --notes $Message --latest
@@ -64,7 +68,12 @@ try {
         updateTitle = "New Update Available"
         updateMessage = $Message
     }
-    $payload | ConvertTo-Json | Set-Content -LiteralPath $updateJson -Encoding UTF8
+    $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText(
+        $updateJson,
+        ($payload | ConvertTo-Json),
+        $utf8WithoutBom
+    )
 
     & npx.cmd --yes firebase-tools@latest deploy --only database --project friends-split-up
     if ($LASTEXITCODE -ne 0) { throw "Realtime Database rules deployment failed." }
