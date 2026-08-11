@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "196126657592",
+    "firebase_url": "https://friends-split-up-default-rtdb.firebaseio.com",
+    "project_id": "friends-split-up",
+    "storage_bucket": "friends-split-up.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:196126657592:android:ae0cecdb901a006d18eacd",
+        "android_client_info": {
+          "package_name": "com.friendlyhood.split"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "196126657592-ncah8rqlju18l05rpu9j4s2q50ns0gj0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.friendlyhood.split",
+            "certificate_hash": "bc64340d2a1541a1987d74657682f39d87b041d5"
+          }
+        },
+        {
+          "client_id": "196126657592-eijiiutvdikeokja69rv8mfn5p7nbnlb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyALh_gZzt9JwgvfyiJE469LJcBs_ZYP__s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "196126657592-eijiiutvdikeokja69rv8mfn5p7nbnlb.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

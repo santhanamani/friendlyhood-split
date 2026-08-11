@@ -1,0 +1,83 @@
+class SplitGroup {
+  const SplitGroup({
+    required this.id,
+    required this.name,
+    required this.emoji,
+    required this.ownerId,
+    required this.members,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String name;
+  final String emoji;
+  final String ownerId;
+  final Map<String, GroupMember> members;
+  final int createdAt;
+
+  factory SplitGroup.fromMap(String id, Map<dynamic, dynamic> data) {
+    final rawMembers = Map<dynamic, dynamic>.from(data['members'] as Map? ?? {});
+    return SplitGroup(
+      id: id,
+      name: data['name'] as String? ?? 'Untitled group',
+      emoji: data['emoji'] as String? ?? '✨',
+      ownerId: data['ownerId'] as String? ?? '',
+      createdAt: (data['createdAt'] as num?)?.toInt() ?? 0,
+      members: rawMembers.map((key, value) => MapEntry(
+            key.toString(),
+            GroupMember.fromMap(key.toString(), Map<dynamic, dynamic>.from(value as Map)),
+          )),
+    );
+  }
+}
+
+class GroupMember {
+  const GroupMember({required this.uid, required this.name, required this.email, required this.role});
+  final String uid;
+  final String name;
+  final String email;
+  final String role;
+
+  factory GroupMember.fromMap(String uid, Map<dynamic, dynamic> data) => GroupMember(
+        uid: uid,
+        name: data['name'] as String? ?? 'Friend',
+        email: data['email'] as String? ?? '',
+        role: data['role'] as String? ?? 'viewer',
+      );
+}
+
+class LedgerEntry {
+  const LedgerEntry({
+    required this.id,
+    required this.type,
+    required this.title,
+    required this.category,
+    required this.amount,
+    required this.paidBy,
+    required this.splitAmong,
+    required this.createdAt,
+  });
+  final String id;
+  final String type;
+  final String title;
+  final String category;
+  final double amount;
+  final String paidBy;
+  final Map<String, double> splitAmong;
+  final int createdAt;
+
+  factory LedgerEntry.fromMap(String id, Map<dynamic, dynamic> data) {
+    final rawSplit = Map<dynamic, dynamic>.from(data['splitAmong'] as Map? ?? {});
+    return LedgerEntry(
+      id: id,
+      type: data['type'] as String? ?? 'expense',
+      title: data['title'] as String? ?? 'Transaction',
+      category: data['category'] as String? ?? 'Other',
+      amount: (data['amount'] as num?)?.toDouble() ?? 0,
+      paidBy: data['paidBy'] as String? ?? '',
+      splitAmong: rawSplit.map((k, v) => MapEntry(k.toString(), (v as num).toDouble())),
+      createdAt: (data['createdAt'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+

@@ -1,0 +1,40 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "app_update": {
+      ".read": true,
+      ".write": false
+    },
+    "users": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "groups": {
+      ".read": "auth != null",
+      "$groupId": {
+        ".write": "auth != null && ((!data.exists() && newData.child('ownerId').val() === auth.uid && newData.child('members').child(auth.uid).child('role').val() === 'admin') || data.child('ownerId').val() === auth.uid)",
+        ".validate": "newData.hasChildren(['name', 'ownerId', 'members', 'createdAt'])"
+      }
+    },
+    "groupMembers": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        "$groupId": {
+          ".write": "auth != null && ($uid === auth.uid || root.child('groups').child($groupId).child('ownerId').val() === auth.uid)"
+        }
+      }
+    },
+    "transactions": {
+      "$groupId": {
+        ".read": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
+        "$transactionId": {
+          ".write": "auth != null && root.child('groups').child($groupId).child('ownerId').val() === auth.uid",
+          ".validate": "!newData.exists() || newData.hasChildren(['type', 'title', 'amount', 'paidBy', 'createdBy', 'createdAt'])"
+        }
+      }
+    }
+  }
+}
