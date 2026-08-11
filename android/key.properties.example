@@ -1,0 +1,5 @@
+# Copy this file to android/key.properties. Never commit the real file or keystore.
+storeFile=C:/secure/location/brosplit-release.jks
+storePassword=replace-with-store-password
+keyAlias=brosplit
+keyPassword=replace-with-key-password

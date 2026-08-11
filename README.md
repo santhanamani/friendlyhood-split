@@ -80,6 +80,17 @@ npx firebase-tools deploy --only database --project friends-split-up
 
 ### Publish a future update
 
+Release APKs use one permanent signing key. The current distributed install lineage uses the original local Android key, so do not generate a replacement key for an update. Keep the keystore backed up securely and never commit it.
+
+For local builds, copy `android/key.properties.example` to `android/key.properties` and point it to the protected keystore. For GitHub Actions, configure these repository secrets:
+
+- `ANDROID_KEYSTORE_BASE64`: base64 content of the same keystore file
+- `ANDROID_KEYSTORE_PASSWORD`: keystore password
+- `ANDROID_KEY_ALIAS`: key alias
+- `ANDROID_KEY_PASSWORD`: key password
+
+The workflow fails before building when any signing secret is missing. This prevents a release signed by a temporary GitHub runner key.
+
 1. Increment the version in `pubspec.yaml`, for example `version: 1.0.2+3`. The build number after `+` must always increase.
 2. Run the publisher from the project root:
 
@@ -108,6 +119,6 @@ The hosted download URL is:
 https://github.com/santhanamani/friendlyhood-split/releases/download/v1.0.3/app-release.apk
 ```
 
-Every future APK must use the exact same Android signing key as the already-installed app. Android rejects an update signed with a different key. The current Gradle file uses the debug key for release builds only as a development convenience; configure a protected production upload/release keystore before distributing the app to real users, then keep that key permanently.
+Every future APK must use the exact same Android signing key as the already-installed app. Android rejects an update signed with a different key. Gradle now requires an explicit protected signing configuration and no longer falls back to a random debug key.
 
 Android 8+ users are sent to the app-specific **Install unknown apps** settings page when needed. No broad storage permission is requested, and Android always displays its own update confirmation UI.
