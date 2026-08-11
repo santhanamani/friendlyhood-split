@@ -1,7 +1,7 @@
 {
-  "latestVersion": "1.0.6",
-  "latestVersionCode": 7,
-  "apkUrl": "https://github.com/santhanamani/friendlyhood-split/releases/download/v1.0.6/app-release.apk",
+  "latestVersion": "1.0.7",
+  "latestVersionCode": 8,
+  "apkUrl": "https://github.com/santhanamani/friendlyhood-split/releases/download/v1.0.7/app-release.apk",
   "forceUpdate": false,
   "updateTitle": "New Update Available",
   "updateMessage": "Group chat, polls, voice notes, flexible transaction dates and a refreshed BroSplit experience."

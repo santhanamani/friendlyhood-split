@@ -1,7 +1,7 @@
 name: friendlyhood_split
 description: Friendlyhood Split - a modern group wallet and expense splitting app.
 publish_to: none
-version: 1.0.6+7
+version: 1.0.7+8
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
