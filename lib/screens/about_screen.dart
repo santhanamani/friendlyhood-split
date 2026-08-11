@@ -49,7 +49,7 @@ class _AboutScreenState extends State<AboutScreen> {
               const SizedBox(height: 10),
               const _StoryCard(
                 text:
-                    'We are friends building for friends. FrenSplit is a simple, transparent shared-money companion made for trips, food, homes and every moment a group enjoys together.',
+                    'We are friends building for friends. BroSplit is a simple, transparent shared-money companion made for trips, food, homes and every moment a group enjoys together.',
               ),
               const SizedBox(height: 22),
               const _SectionTitle(
@@ -110,7 +110,7 @@ class _BrandHero extends StatelessWidget {
             _AppMark(),
             SizedBox(height: 18),
             Text(
-              'FrenSplit',
+              'BroSplit',
               textAlign: TextAlign.center,
               style: TextStyle(
                   fontSize: 27,

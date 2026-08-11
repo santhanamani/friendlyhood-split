@@ -41,6 +41,93 @@ class DatabaseService {
     });
   }
 
+  Stream<List<GroupMessage>> watchMessages(String groupId) {
+    return _db
+        .ref('groupChats/$groupId/messages')
+        .limitToLast(200)
+        .onValue
+        .map((event) {
+      final value = event.snapshot.value;
+      if (value is! Map) return <GroupMessage>[];
+      final messages = value.entries
+          .map((entry) => GroupMessage.fromMap(entry.key.toString(),
+              Map<dynamic, dynamic>.from(entry.value as Map)))
+          .toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      return messages;
+    });
+  }
+
+  Future<void> sendTextMessage(String groupId, String text,
+      {bool sticker = false}) {
+    final ref = _db.ref('groupChats/$groupId/messages').push();
+    return ref.set({
+      'kind': sticker ? 'sticker' : 'text',
+      'text': text.trim(),
+      'senderId': user.uid,
+      'senderName': user.displayName ?? 'Friend',
+      'createdAt': ServerValue.timestamp,
+    });
+  }
+
+  Future<void> sendAudioMessage({
+    required String groupId,
+    required String audioBase64,
+    required int durationSeconds,
+  }) {
+    final ref = _db.ref('groupChats/$groupId/messages').push();
+    return ref.set({
+      'kind': 'audio',
+      'senderId': user.uid,
+      'senderName': user.displayName ?? 'Friend',
+      'audioBase64': audioBase64,
+      'audioDurationSeconds': durationSeconds.clamp(1, 10),
+      'createdAt': ServerValue.timestamp,
+    });
+  }
+
+  Future<void> createPoll({
+    required String groupId,
+    required String question,
+    required List<String> options,
+  }) {
+    final ref = _db.ref('groupChats/$groupId/messages').push();
+    return ref.set({
+      'kind': 'poll',
+      'senderId': user.uid,
+      'senderName': user.displayName ?? 'Friend',
+      'pollQuestion': question.trim(),
+      'pollOptions': {
+        for (var index = 0; index < options.length; index++)
+          'option$index': options[index].trim(),
+      },
+      'createdAt': ServerValue.timestamp,
+    });
+  }
+
+  Stream<Map<String, String>> watchPollVotes(String groupId, String messageId) {
+    return _db.ref('pollVotes/$groupId/$messageId').onValue.map((event) {
+      final value = event.snapshot.value;
+      if (value is! Map) return <String, String>{};
+      return value.map((key, value) => MapEntry('$key', '$value'));
+    });
+  }
+
+  Future<void> votePoll(String groupId, String messageId, String optionId) =>
+      _db.ref('pollVotes/$groupId/$messageId/${user.uid}').set(optionId);
+
+  Stream<Map<String, String>> watchMessageReactions(
+      String groupId, String messageId) {
+    return _db.ref('messageReactions/$groupId/$messageId').onValue.map((event) {
+      final value = event.snapshot.value;
+      if (value is! Map) return <String, String>{};
+      return value.map((key, value) => MapEntry('$key', '$value'));
+    });
+  }
+
+  Future<void> reactToMessage(String groupId, String messageId, String emoji) =>
+      _db.ref('messageReactions/$groupId/$messageId/${user.uid}').set(emoji);
+
   Future<SplitGroup?> getGroup(String groupId) async {
     final snapshot = await _db.ref('groups/$groupId').get();
     if (!snapshot.exists || snapshot.value is! Map) return null;
@@ -161,6 +248,9 @@ class DatabaseService {
     final transactionIds = transactions.children.map((item) => item.key);
     await _db.ref().update({
       'groups/${group.id}': null,
+      'groupChats/${group.id}': null,
+      'pollVotes/${group.id}': null,
+      'messageReactions/${group.id}': null,
       if (group.accessCode.isNotEmpty) 'joinCodes/${group.accessCode}': null,
       for (final uid in group.members.keys)
         'groupMembers/$uid/${group.id}': null,
@@ -174,6 +264,7 @@ class DatabaseService {
     required String groupId,
     required String memberId,
     required double amount,
+    required int occurredAt,
   }) {
     final ref = _db.ref('transactions/$groupId').push();
     return ref.set({
@@ -184,7 +275,7 @@ class DatabaseService {
       'paidBy': memberId,
       'splitAmong': <String, double>{},
       'createdBy': user.uid,
-      'createdAt': ServerValue.timestamp,
+      'createdAt': occurredAt,
     });
   }
 
@@ -197,6 +288,7 @@ class DatabaseService {
     required List<String> memberIds,
     required String paymentSource,
     required double walletBalance,
+    required int occurredAt,
   }) {
     final share = amount / memberIds.length;
     final split = {for (final uid in memberIds) uid: share};
@@ -216,7 +308,7 @@ class DatabaseService {
       'personalPaid': personalPaid,
       'splitAmong': split,
       'createdBy': user.uid,
-      'createdAt': ServerValue.timestamp,
+      'createdAt': occurredAt,
     });
   }
 
@@ -225,10 +317,12 @@ class DatabaseService {
     required String transactionId,
     required String memberId,
     required double amount,
+    required int occurredAt,
   }) =>
       _db.ref('transactions/$groupId/$transactionId').update({
         'amount': amount,
         'paidBy': memberId,
+        'createdAt': occurredAt,
       });
 
   Future<void> updateExpense({
@@ -241,6 +335,7 @@ class DatabaseService {
     required List<String> memberIds,
     required String paymentSource,
     required double walletBalance,
+    required int occurredAt,
   }) {
     final share = amount / memberIds.length;
     final walletUsed = paymentSource == 'wallet'
@@ -255,6 +350,7 @@ class DatabaseService {
       'paymentSource': paymentSource,
       'walletUsed': walletUsed,
       'personalPaid': amount - walletUsed,
+      'createdAt': occurredAt,
     });
   }
 

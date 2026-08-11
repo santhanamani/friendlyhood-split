@@ -72,7 +72,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
           _downloading = false;
           _awaitingPermission = true;
           _error =
-              'Allow “Install unknown apps” for FrenSplit, then return here.';
+              'Allow “Install unknown apps” for BroSplit, then return here.';
         });
         await widget.service.openInstallPermissionSettings();
       }

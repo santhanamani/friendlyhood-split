@@ -125,3 +125,47 @@ class LedgerEntry {
     );
   }
 }
+
+class GroupMessage {
+  const GroupMessage({
+    required this.id,
+    required this.kind,
+    required this.text,
+    required this.senderId,
+    required this.senderName,
+    required this.audioBase64,
+    required this.audioDurationSeconds,
+    required this.pollQuestion,
+    required this.pollOptions,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String kind;
+  final String text;
+  final String senderId;
+  final String senderName;
+  final String audioBase64;
+  final int audioDurationSeconds;
+  final String pollQuestion;
+  final Map<String, String> pollOptions;
+  final int createdAt;
+
+  factory GroupMessage.fromMap(String id, Map<dynamic, dynamic> data) {
+    final rawOptions =
+        Map<dynamic, dynamic>.from(data['pollOptions'] as Map? ?? {});
+    return GroupMessage(
+      id: id,
+      kind: data['kind'] as String? ?? 'text',
+      text: data['text'] as String? ?? '',
+      senderId: data['senderId'] as String? ?? '',
+      senderName: data['senderName'] as String? ?? 'Friend',
+      audioBase64: data['audioBase64'] as String? ?? '',
+      audioDurationSeconds:
+          (data['audioDurationSeconds'] as num?)?.toInt() ?? 0,
+      pollQuestion: data['pollQuestion'] as String? ?? '',
+      pollOptions: rawOptions.map((key, value) => MapEntry('$key', '$value')),
+      createdAt: (data['createdAt'] as num?)?.toInt() ?? 0,
+    );
+  }
+}

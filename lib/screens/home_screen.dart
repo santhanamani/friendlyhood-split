@@ -9,6 +9,7 @@ import '../models/app_models.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import 'about_screen.dart';
+import 'group_chat_screen.dart';
 
 final _money =
     NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
@@ -17,6 +18,8 @@ InputDecoration _dropdownDecoration(String label, IconData icon) =>
     InputDecoration(
       labelText: label,
       prefixIcon: Icon(icon, color: const Color(0xFF9B8EFF)),
+      prefixIconConstraints: const BoxConstraints(minWidth: 46),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 17),
       filled: true,
       fillColor: const Color(0xFF1B1D2B),
       enabledBorder: OutlineInputBorder(
@@ -28,6 +31,83 @@ InputDecoration _dropdownDecoration(String label, IconData icon) =>
         borderSide: const BorderSide(color: Color(0xFF9B8EFF), width: 1.5),
       ),
     );
+
+InputDecoration _amountDecoration() => InputDecoration(
+      labelText: 'Amount',
+      hintText: '0.00',
+      prefixIcon: const Icon(Icons.currency_rupee_rounded,
+          color: Color(0xFF65DDBA), size: 21),
+      prefixIconConstraints: const BoxConstraints(minWidth: 46),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+      filled: true,
+      fillColor: const Color(0xFF202333),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFF55506F), width: 1.2),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFF9B8EFF), width: 2),
+      ),
+    );
+
+class _TransactionTypeSelector extends StatelessWidget {
+  const _TransactionTypeSelector({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        height: 52,
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: const Color(0xFF12141E),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFF454159)),
+        ),
+        child: Row(
+          children: [
+            _option('expense', 'Expense', Icons.receipt_long_rounded),
+            const SizedBox(width: 4),
+            _option('contribution', 'Deposit', Icons.savings_rounded),
+          ],
+        ),
+      );
+
+  Widget _option(String option, String label, IconData icon) {
+    final selected = value == option;
+    return Expanded(
+      child: InkWell(
+        onTap: () => onChanged(option),
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF57508E) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon,
+                  size: 18, color: selected ? Colors.white : Colors.white60),
+              const SizedBox(width: 7),
+              Text(label,
+                  style: TextStyle(
+                      color: selected ? Colors.white : Colors.white70,
+                      fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 OverlayEntry? _activeWarningToast;
 
@@ -78,6 +158,41 @@ void _showWarningToast(BuildContext context, String message) {
     }
   });
 }
+
+Future<DateTime?> _pickTransactionDateTime(
+    BuildContext context, DateTime initial) async {
+  final date = await showDatePicker(
+    context: context,
+    initialDate: initial,
+    firstDate: DateTime(2000),
+    lastDate: DateTime.now().add(const Duration(days: 365)),
+  );
+  if (date == null || !context.mounted) return null;
+  final time = await showTimePicker(
+    context: context,
+    initialTime: TimeOfDay.fromDateTime(initial),
+  );
+  if (time == null) return null;
+  return DateTime(date.year, date.month, date.day, time.hour, time.minute);
+}
+
+Widget _transactionDateTimeField(DateTime value, VoidCallback onTap) =>
+    Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1B1D2B),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF37344D)),
+      ),
+      child: ListTile(
+        onTap: onTap,
+        leading: const Icon(Icons.event_rounded, color: Color(0xFF9B8EFF)),
+        title: const Text('Transaction date & time',
+            style: TextStyle(color: Colors.white60, fontSize: 12)),
+        subtitle: Text(DateFormat('d MMM yyyy, h:mm a').format(value),
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+        trailing: const Icon(Icons.edit_calendar_rounded),
+      ),
+    );
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.user});
@@ -191,7 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.badge_outlined),
           ),
           IconButton(
-            tooltip: 'About FrenSplit',
+            tooltip: 'About BroSplit',
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const AboutScreen()),
@@ -487,6 +602,16 @@ class _GroupScreenState extends State<GroupScreen> {
 
   bool get isAdmin => group.ownerId == currentUid;
 
+  List<GroupMember> get orderedMembers {
+    final members = group.members.values.toList();
+    members.sort((a, b) {
+      if (a.uid == currentUid) return -1;
+      if (b.uid == currentUid) return 1;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    return members;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -494,6 +619,20 @@ class _GroupScreenState extends State<GroupScreen> {
         title: Text('${group.emoji}  ${group.name}',
             style: const TextStyle(fontWeight: FontWeight.w800)),
         actions: [
+          IconButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => GroupChatScreen(
+                  group: group,
+                  database: database,
+                  currentUid: currentUid,
+                ),
+              ),
+            ),
+            icon: const Icon(Icons.forum_rounded),
+            tooltip: 'Group chat',
+          ),
           IconButton(
             onPressed: _openGroupSettings,
             icon: Icon(
@@ -586,7 +725,7 @@ class _GroupScreenState extends State<GroupScreen> {
                   itemCount: group.members.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 10),
                   itemBuilder: (context, index) {
-                    final member = group.members.values.elementAt(index);
+                    final member = orderedMembers[index];
                     return InkWell(
                       borderRadius: BorderRadius.circular(18),
                       onTap: isAdmin || member.uid == currentUid
@@ -646,7 +785,7 @@ class _GroupScreenState extends State<GroupScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _addTransaction(context),
         icon: const Icon(Icons.add_rounded),
-        label: Text(isAdmin ? 'Add transaction' : 'Add expense'),
+        label: const Text('Add'),
       ),
     );
   }
@@ -682,6 +821,7 @@ class _GroupScreenState extends State<GroupScreen> {
     var category = entry.category;
     var paidBy = entry.paidBy;
     var paymentSource = entry.paymentSource;
+    var occurredAt = DateTime.fromMillisecondsSinceEpoch(entry.createdAt);
     final selected = entry.splitAmong.keys.toSet();
     final save = await showModalBottomSheet<bool>(
       context: context,
@@ -744,9 +884,16 @@ class _GroupScreenState extends State<GroupScreen> {
                   controller: amount,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                      labelText: 'Amount', prefixText: '₹ '),
+                  decoration: _amountDecoration(),
                 ),
+                const SizedBox(height: 12),
+                _transactionDateTimeField(occurredAt, () async {
+                  final picked =
+                      await _pickTransactionDateTime(context, occurredAt);
+                  if (picked != null) {
+                    setLocalState(() => occurredAt = picked);
+                  }
+                }),
                 const SizedBox(height: 12),
                 if (entry.type == 'contribution')
                   DropdownButtonFormField<String>(
@@ -760,7 +907,7 @@ class _GroupScreenState extends State<GroupScreen> {
                         color: Color(0xFFB7AEFF)),
                     decoration: _dropdownDecoration(
                         'Contributed by', Icons.person_rounded),
-                    items: group.members.values
+                    items: orderedMembers
                         .map((member) => DropdownMenuItem(
                             value: member.uid, child: Text(member.name)))
                         .toList(),
@@ -798,7 +945,7 @@ class _GroupScreenState extends State<GroupScreen> {
                   Wrap(
                     spacing: 8,
                     runSpacing: 6,
-                    children: group.members.values
+                    children: orderedMembers
                         .map((member) => FilterChip(
                               label: Text(member.name),
                               selected: selected.contains(member.uid),
@@ -834,6 +981,7 @@ class _GroupScreenState extends State<GroupScreen> {
         transactionId: entry.id,
         memberId: paidBy,
         amount: value,
+        occurredAt: occurredAt.millisecondsSinceEpoch,
       );
     } else if (title.text.trim().isNotEmpty && selected.isNotEmpty) {
       final currentWallet = await database.getWalletBalance(group.id);
@@ -847,6 +995,7 @@ class _GroupScreenState extends State<GroupScreen> {
         memberIds: selected.toList(),
         paymentSource: paymentSource,
         walletBalance: currentWallet + entry.walletUsed,
+        occurredAt: occurredAt.millisecondsSinceEpoch,
       );
     }
   }
@@ -856,6 +1005,7 @@ class _GroupScreenState extends State<GroupScreen> {
     String category = 'Food';
     String paidBy = currentUid;
     String paymentSource = 'personal';
+    var occurredAt = DateTime.now();
     final selected = group.members.keys.toSet();
     final title = TextEditingController();
     final amount = TextEditingController();
@@ -879,26 +1029,15 @@ class _GroupScreenState extends State<GroupScreen> {
                               ?.copyWith(fontWeight: FontWeight.w900)),
                       const SizedBox(height: 18),
                       if (isAdmin)
-                        SegmentedButton<String>(
-                            segments: const [
-                              ButtonSegment(
-                                  value: 'expense',
-                                  label: Text('Expense'),
-                                  icon: Icon(Icons.receipt_long_rounded)),
-                              ButtonSegment(
-                                  value: 'contribution',
-                                  label: Text('Deposit'),
-                                  icon: Icon(Icons.savings_rounded))
-                            ],
-                            selected: {
-                              type
-                            },
-                            onSelectionChanged: (value) => setLocalState(() {
-                                  type = value.first;
-                                  if (type == 'contribution') {
-                                    paymentSource = 'personal';
-                                  }
-                                })),
+                        _TransactionTypeSelector(
+                          value: type,
+                          onChanged: (value) => setLocalState(() {
+                            type = value;
+                            if (type == 'contribution') {
+                              paymentSource = 'personal';
+                            }
+                          }),
+                        ),
                       const SizedBox(height: 16),
                       if (type == 'expense') ...[
                         TextField(
@@ -935,8 +1074,15 @@ class _GroupScreenState extends State<GroupScreen> {
                           controller: amount,
                           keyboardType: const TextInputType.numberWithOptions(
                               decimal: true),
-                          decoration: const InputDecoration(
-                              labelText: 'Amount', prefixText: '₹ ')),
+                          decoration: _amountDecoration()),
+                      const SizedBox(height: 10),
+                      _transactionDateTimeField(occurredAt, () async {
+                        final picked =
+                            await _pickTransactionDateTime(context, occurredAt);
+                        if (picked != null) {
+                          setLocalState(() => occurredAt = picked);
+                        }
+                      }),
                       const SizedBox(height: 10),
                       if (type == 'contribution')
                         DropdownButtonFormField<String>(
@@ -950,7 +1096,7 @@ class _GroupScreenState extends State<GroupScreen> {
                             borderRadius: BorderRadius.circular(16),
                             decoration: _dropdownDecoration(
                                 'Contributed by', Icons.person_rounded),
-                            items: group.members.values
+                            items: orderedMembers
                                 .map((member) => DropdownMenuItem(
                                     value: member.uid,
                                     child: Text(member.name)))
@@ -1033,8 +1179,7 @@ class _GroupScreenState extends State<GroupScreen> {
                               separatorBuilder: (_, __) => const Divider(
                                   height: 1, indent: 52, endIndent: 12),
                               itemBuilder: (context, index) {
-                                final member =
-                                    group.members.values.elementAt(index);
+                                final member = orderedMembers[index];
                                 return CheckboxListTile(
                                   dense: true,
                                   contentPadding:
@@ -1094,7 +1239,10 @@ class _GroupScreenState extends State<GroupScreen> {
     if (save != true || value == null || value <= 0) return;
     if (type == 'contribution') {
       await database.addContribution(
-          groupId: group.id, memberId: paidBy, amount: value);
+          groupId: group.id,
+          memberId: paidBy,
+          amount: value,
+          occurredAt: occurredAt.millisecondsSinceEpoch);
     } else if (title.text.trim().isNotEmpty && selected.isNotEmpty) {
       final walletBalance = await database.getWalletBalance(group.id);
       await database.addExpense(
@@ -1105,7 +1253,8 @@ class _GroupScreenState extends State<GroupScreen> {
           paidBy: currentUid,
           memberIds: selected.toList(),
           paymentSource: paymentSource,
-          walletBalance: walletBalance);
+          walletBalance: walletBalance,
+          occurredAt: occurredAt.millisecondsSinceEpoch);
     }
   }
 }

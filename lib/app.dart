@@ -12,7 +12,7 @@ class FriendlyhoodSplitApp extends StatelessWidget {
   Widget build(BuildContext context) {
     const seed = Color(0xFF6C5CE7);
     return MaterialApp(
-      title: 'FrenSplit',
+      title: 'BroSplit',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.dark,
       darkTheme: ThemeData(

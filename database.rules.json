@@ -47,6 +47,42 @@
           ".validate": "!newData.exists() || (newData.hasChildren(['type', 'title', 'amount', 'paidBy', 'createdBy', 'createdAt']) && newData.child('amount').isNumber() && newData.child('amount').val() > 0 && (newData.child('type').val() === 'contribution' || (newData.child('type').val() === 'expense' && newData.hasChildren(['paymentSource', 'walletUsed', 'personalPaid', 'splitAmong']))))"
         }
       }
+    },
+    "groupChats": {
+      "$groupId": {
+        ".read": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
+        ".write": "auth != null && !newData.exists() && root.child('groups').child($groupId).child('ownerId').val() === auth.uid",
+        "messages": {
+          "$messageId": {
+            ".write": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists() && ((!data.exists() && newData.child('senderId').val() === auth.uid) || (data.exists() && (data.child('senderId').val() === auth.uid || root.child('groups').child($groupId).child('ownerId').val() === auth.uid)))",
+            ".validate": "!newData.exists() || (newData.hasChildren(['kind', 'senderId', 'senderName', 'createdAt']) && (newData.child('kind').val() === 'text' || newData.child('kind').val() === 'sticker' || newData.child('kind').val() === 'audio' || newData.child('kind').val() === 'poll') && (newData.child('kind').val() !== 'audio' || (newData.child('audioBase64').isString() && newData.child('audioBase64').val().length <= 700000 && newData.child('audioDurationSeconds').val() <= 10)) && (newData.child('kind').val() !== 'poll' || newData.hasChildren(['pollQuestion', 'pollOptions'])))"
+          }
+        }
+      }
+    },
+    "pollVotes": {
+      "$groupId": {
+        ".read": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
+        ".write": "auth != null && !newData.exists() && root.child('groups').child($groupId).child('ownerId').val() === auth.uid",
+        "$messageId": {
+          "$uid": {
+            ".write": "auth != null && $uid === auth.uid && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
+            ".validate": "!newData.exists() || (newData.isString() && root.child('groupChats').child($groupId).child('messages').child($messageId).child('pollOptions').child(newData.val()).exists())"
+          }
+        }
+      }
+    },
+    "messageReactions": {
+      "$groupId": {
+        ".read": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
+        ".write": "auth != null && !newData.exists() && root.child('groups').child($groupId).child('ownerId').val() === auth.uid",
+        "$messageId": {
+          "$uid": {
+            ".write": "auth != null && $uid === auth.uid && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
+            ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 8)"
+          }
+        }
+      }
     }
   }
 }

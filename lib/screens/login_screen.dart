@@ -61,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 28),
                       Text(
-                        'FrenSplit',
+                        'BroSplit',
                         style:
                             Theme.of(context).textTheme.displaySmall?.copyWith(
                                   fontWeight: FontWeight.w900,

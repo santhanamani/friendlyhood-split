@@ -34,7 +34,7 @@ class AppUpdateInfo {
           : 'New update available',
       updateMessage: data['updateMessage']?.toString().trim().isNotEmpty == true
           ? data['updateMessage'].toString()
-          : 'A newer version of FrenSplit is ready.',
+          : 'A newer version of BroSplit is ready.',
     );
   }
 }
