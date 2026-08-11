@@ -29,7 +29,18 @@ try {
         throw "GitHub CLI is required. Install it with: winget install --id GitHub.cli"
     }
     & gh auth status --hostname github.com
-    if ($LASTEXITCODE -ne 0) { throw "Run 'gh auth login' before publishing." }
+    if ($LASTEXITCODE -ne 0) {
+        $credentialRequest = "protocol=https`nhost=github.com`nusername=santhanamani`n`n"
+        $credentialResponse = $credentialRequest | git credential fill
+        $secretEntry = $credentialResponse |
+            Where-Object { $_ -like "password=*" } |
+            Select-Object -First 1
+        if (-not $secretEntry) {
+            throw "Run 'gh auth login' or authenticate Git as santhanamani before publishing."
+        }
+        $env:GH_TOKEN = $secretEntry.Substring("password=".Length)
+        Remove-Variable credentialResponse, secretEntry
+    }
 
     flutter build apk --release
 
@@ -59,6 +70,9 @@ try {
 
     Write-Host "Published friendlyhood-split $Version ($VersionCode)."
 } finally {
+    if (Test-Path Env:\GH_TOKEN) {
+        Remove-Item Env:\GH_TOKEN
+    }
     if (Test-Path -LiteralPath $updateJson) {
         Remove-Item -LiteralPath $updateJson -Force
     }

@@ -96,7 +96,7 @@ npx firebase-tools deploy --only database --project friends-split-up
 The script builds the universal release APK using the local signing configuration, uploads it to a GitHub Release, deploys database rules, and updates `/app_update` in Realtime Database. Before the first publish, authenticate both CLIs:
 
 ```powershell
-gh auth login
+gh auth login # optional when Git Credential Manager is already authenticated
 npx.cmd --yes firebase-tools@latest login --no-localhost
 ```
 
