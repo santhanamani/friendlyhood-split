@@ -138,6 +138,7 @@ class GroupMessage {
     required this.pollQuestion,
     required this.pollOptions,
     required this.createdAt,
+    required this.editedAt,
   });
 
   final String id;
@@ -150,6 +151,7 @@ class GroupMessage {
   final String pollQuestion;
   final Map<String, String> pollOptions;
   final int createdAt;
+  final int editedAt;
 
   factory GroupMessage.fromMap(String id, Map<dynamic, dynamic> data) {
     final rawOptions =
@@ -166,6 +168,7 @@ class GroupMessage {
       pollQuestion: data['pollQuestion'] as String? ?? '',
       pollOptions: rawOptions.map((key, value) => MapEntry('$key', '$value')),
       createdAt: (data['createdAt'] as num?)?.toInt() ?? 0,
+      editedAt: (data['editedAt'] as num?)?.toInt() ?? 0,
     );
   }
 }

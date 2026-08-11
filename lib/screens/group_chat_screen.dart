@@ -50,6 +50,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   int recordedSeconds = 0;
   int recordingSession = 0;
 
+  bool get isAdmin => widget.group.ownerId == widget.currentUid;
+
   @override
   void dispose() {
     recordingSession++;
@@ -131,7 +133,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
-        onLongPress: () => _showReactionPicker(item),
+        onLongPress: () => _showMessageActions(item),
         child: Container(
           constraints: const BoxConstraints(maxWidth: 310),
           margin: const EdgeInsets.only(bottom: 10),
@@ -171,6 +173,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   DateFormat('h:mm a').format(
                       DateTime.fromMillisecondsSinceEpoch(item.createdAt)),
                   style: const TextStyle(color: Colors.white38, fontSize: 9)),
+              if (item.editedAt > 0) ...[
+                const SizedBox(width: 4),
+                const Text('(edited)',
+                    style: TextStyle(color: Colors.white38, fontSize: 9)),
+              ],
               const SizedBox(width: 8),
               _reactionSummary(item),
             ]),
@@ -360,6 +367,105 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     if (emoji != null) {
       await widget.database.reactToMessage(widget.group.id, item.id, emoji);
     }
+  }
+
+  Future<void> _showMessageActions(GroupMessage item) async {
+    final mine = item.senderId == widget.currentUid;
+    final canEdit = mine && item.kind == 'text';
+    final canDelete = mine || isAdmin;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            ListTile(
+              leading: const Icon(Icons.add_reaction_outlined,
+                  color: Color(0xFFFFB45E)),
+              title: const Text('React'),
+              onTap: () => Navigator.pop(context, 'react'),
+            ),
+            if (canEdit)
+              ListTile(
+                leading:
+                    const Icon(Icons.edit_rounded, color: Color(0xFF9B8EFF)),
+                title: const Text('Edit message'),
+                subtitle: const Text('Only text messages can be edited'),
+                onTap: () => Navigator.pop(context, 'edit'),
+              ),
+            if (canDelete)
+              ListTile(
+                leading: const Icon(Icons.delete_outline_rounded,
+                    color: Color(0xFFFF837A)),
+                title: Text(mine ? 'Delete message' : 'Delete as admin'),
+                subtitle: Text(mine
+                    ? 'Remove your message for everyone'
+                    : 'Remove ${item.senderName}\'s message for everyone'),
+                onTap: () => Navigator.pop(context, 'delete'),
+              ),
+          ]),
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    if (action == 'react') await _showReactionPicker(item);
+    if (action == 'edit') await _editMessage(item);
+    if (action == 'delete') await _deleteMessage(item);
+  }
+
+  Future<void> _editMessage(GroupMessage item) async {
+    final controller = TextEditingController(text: item.text);
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit message'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          minLines: 1,
+          maxLines: 6,
+          maxLength: 2000,
+          decoration: const InputDecoration(hintText: 'Message'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Save')),
+        ],
+      ),
+    );
+    final value = controller.text.trim();
+    controller.dispose();
+    if (save != true || value.isEmpty || value == item.text) return;
+    await widget.database.editTextMessage(widget.group.id, item.id, value);
+  }
+
+  Future<void> _deleteMessage(GroupMessage item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete message?'),
+        content: Text(item.senderId == widget.currentUid
+            ? 'This message will be removed for everyone.'
+            : 'Remove ${item.senderName}\'s message for everyone?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFD94C5C)),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await widget.database.deleteMessage(widget.group.id, item.id);
   }
 
   Future<void> _startRecording() async {

@@ -70,6 +70,19 @@ class DatabaseService {
     });
   }
 
+  Future<void> editTextMessage(String groupId, String messageId, String text) =>
+      _db.ref('groupChats/$groupId/messages/$messageId').update({
+        'text': text.trim(),
+        'editedAt': ServerValue.timestamp,
+      });
+
+  Future<void> deleteMessage(String groupId, String messageId) =>
+      _db.ref().update({
+        'groupChats/$groupId/messages/$messageId': null,
+        'pollVotes/$groupId/$messageId': null,
+        'messageReactions/$groupId/$messageId': null,
+      });
+
   Future<void> sendAudioMessage({
     required String groupId,
     required String audioBase64,
