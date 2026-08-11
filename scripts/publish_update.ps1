@@ -54,7 +54,7 @@ try {
     & npx.cmd --yes firebase-tools@latest deploy --only database --project friends-split-up
     if ($LASTEXITCODE -ne 0) { throw "Realtime Database rules deployment failed." }
 
-    & npx.cmd --yes firebase-tools@latest database:set /app_update $updateJson --project friends-split-up --instance friends-split-up-default-rtdb --confirm
+    & npx.cmd --yes firebase-tools@latest database:set /app_update $updateJson --project friends-split-up --instance friends-split-up-default-rtdb --force
     if ($LASTEXITCODE -ne 0) { throw "Realtime Database update failed." }
 
     Write-Host "Published friendlyhood-split $Version ($VersionCode)."

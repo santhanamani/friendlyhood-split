@@ -1,8 +1,8 @@
 {
-  "latestVersion": "1.0.0",
-  "latestVersionCode": 1,
+  "latestVersion": "1.0.2",
+  "latestVersionCode": 3,
   "apkUrl": "https://github.com/santhanamani/friendlyhood-split/releases/download/v1.0.2/app-release.apk",
   "forceUpdate": false,
   "updateTitle": "New Update Available",
-  "updateMessage": "A newer and improved version of friendlyhood-split is available."
+  "updateMessage": "Faster splits and a refreshed dashboard."
 }
