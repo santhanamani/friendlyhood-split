@@ -25,10 +25,14 @@ if (-not (Select-String -LiteralPath $pubspecPath -SimpleMatch $expectedVersion 
 
 Push-Location $projectRoot
 try {
-    if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
+    $ghCommand = (Get-Command gh -ErrorAction SilentlyContinue).Source
+    if (-not $ghCommand -and (Test-Path -LiteralPath "C:\Program Files\GitHub CLI\gh.exe")) {
+        $ghCommand = "C:\Program Files\GitHub CLI\gh.exe"
+    }
+    if (-not $ghCommand) {
         throw "GitHub CLI is required. Install it with: winget install --id GitHub.cli"
     }
-    & gh auth status --hostname github.com
+    & $ghCommand auth status --hostname github.com
     if ($LASTEXITCODE -ne 0) {
         $credentialRequest = "protocol=https`nhost=github.com`nusername=santhanamani`n`n"
         $credentialResponse = $credentialRequest | git credential fill
@@ -44,11 +48,11 @@ try {
 
     flutter build apk --release
 
-    & gh release view $releaseTag --repo $repository *> $null
+    & $ghCommand release view $releaseTag --repo $repository *> $null
     if ($LASTEXITCODE -eq 0) {
-        & gh release upload $releaseTag $apkSource --repo $repository --clobber
+        & $ghCommand release upload $releaseTag $apkSource --repo $repository --clobber
     } else {
-        & gh release create $releaseTag $apkSource --repo $repository --title "friendlyhood-split $Version" --notes $Message --latest
+        & $ghCommand release create $releaseTag $apkSource --repo $repository --title "friendlyhood-split $Version" --notes $Message --latest
     }
     if ($LASTEXITCODE -ne 0) { throw "GitHub Release upload failed." }
 

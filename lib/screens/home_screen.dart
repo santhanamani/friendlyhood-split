@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../models/app_models.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
+import 'about_screen.dart';
 
 final _money = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
 
@@ -107,6 +108,14 @@ class _HomeScreenState extends State<HomeScreen> {
               _message('Member ID copied');
             },
             icon: const Icon(Icons.badge_outlined),
+          ),
+          IconButton(
+            tooltip: 'About friendlyhood-split',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AboutScreen()),
+            ),
+            icon: const Icon(Icons.info_outline_rounded),
           ),
           IconButton(onPressed: AuthService().signOut, icon: const Icon(Icons.logout_rounded)),
         ],

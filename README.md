@@ -105,7 +105,7 @@ If Firebase says `Already logged in`, no authorization code is needed.
 The hosted download URL is:
 
 ```text
-https://github.com/santhanamani/friendlyhood-split/releases/download/v1.0.2/app-release.apk
+https://github.com/santhanamani/friendlyhood-split/releases/download/v1.0.3/app-release.apk
 ```
 
 Every future APK must use the exact same Android signing key as the already-installed app. Android rejects an update signed with a different key. The current Gradle file uses the debug key for release builds only as a development convenience; configure a protected production upload/release keystore before distributing the app to real users, then keep that key permanently.

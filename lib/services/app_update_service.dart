@@ -23,18 +23,25 @@ class AppUpdateService {
   static const _installerChannel = MethodChannel('com.friendlyhood.split/app_update');
   final FirebaseDatabase _database;
 
-  Future<AvailableAppUpdate?> checkForUpdate() async {
-    final results = await Future.wait([
-      _database.ref('app_update').get().timeout(const Duration(seconds: 12)),
-      PackageInfo.fromPlatform(),
-    ]);
-    final snapshot = results[0] as DataSnapshot;
-    final package = results[1] as PackageInfo;
+  Future<AppUpdateInfo?> getLatestRelease() async {
+    final snapshot = await _database
+        .ref('app_update')
+        .get()
+        .timeout(const Duration(seconds: 12));
     if (!snapshot.exists || snapshot.value is! Map) return null;
-
-    final update = AppUpdateInfo.fromMap(
+    return AppUpdateInfo.fromMap(
       Map<dynamic, dynamic>.from(snapshot.value! as Map),
     );
+  }
+
+  Future<AvailableAppUpdate?> checkForUpdate() async {
+    final results = await Future.wait([
+      getLatestRelease(),
+      PackageInfo.fromPlatform(),
+    ]);
+    final update = results[0] as AppUpdateInfo?;
+    final package = results[1] as PackageInfo;
+    if (update == null) return null;
     final installedCode = int.tryParse(package.buildNumber) ?? 0;
     if (update.latestVersionCode <= installedCode) return null;
 

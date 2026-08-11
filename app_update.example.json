@@ -1,8 +1,8 @@
 {
-  "latestVersion": "1.0.2",
-  "latestVersionCode": 3,
-  "apkUrl": "https://github.com/santhanamani/friendlyhood-split/releases/download/v1.0.2/app-release.apk",
+  "latestVersion": "1.0.3",
+  "latestVersionCode": 4,
+  "apkUrl": "https://github.com/santhanamani/friendlyhood-split/releases/download/v1.0.3/app-release.apk",
   "forceUpdate": false,
   "updateTitle": "New Update Available",
-  "updateMessage": "Faster splits and a refreshed dashboard."
+  "updateMessage": "Meet our story, vision and mission in the new About screen."
 }
