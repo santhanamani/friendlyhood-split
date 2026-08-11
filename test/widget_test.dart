@@ -16,6 +16,26 @@ void main() {
 
     expect(entry.amount, 900);
     expect(entry.splitAmong['two'], 450);
+    expect(entry.walletUsed, 900);
+    expect(entry.personalPaid, 0);
+  });
+
+  test('wallet expense keeps only the shortfall as personal payment', () {
+    final entry = LedgerEntry.fromMap('tx-2', {
+      'type': 'expense',
+      'title': 'Hotel',
+      'category': 'Stay',
+      'amount': 1500,
+      'paidBy': 'admin',
+      'paymentSource': 'wallet',
+      'walletUsed': 1000,
+      'personalPaid': 500,
+      'splitAmong': {'admin': 750, 'friend': 750},
+      'createdAt': 2,
+    });
+
+    expect(entry.walletUsed, 1000);
+    expect(entry.personalPaid, 500);
   });
 
   test('app update configuration validates and parses correctly', () {

@@ -20,7 +20,8 @@ class AppUpdateService {
   AppUpdateService({FirebaseDatabase? database})
       : _database = database ?? FirebaseDatabase.instance;
 
-  static const _installerChannel = MethodChannel('com.friendlyhood.split/app_update');
+  static const _installerChannel =
+      MethodChannel('com.friendlyhood.split/app_update');
   final FirebaseDatabase _database;
 
   Future<AppUpdateInfo?> getLatestRelease() async {
@@ -56,24 +57,33 @@ class AppUpdateService {
     AvailableAppUpdate update, {
     required void Function(double? progress) onProgress,
   }) async {
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 20);
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 20);
     File? destination;
     IOSink? sink;
     try {
-      final request = await client.getUrl(update.info.apkUrl).timeout(const Duration(seconds: 20));
+      final request = await client
+          .getUrl(update.info.apkUrl)
+          .timeout(const Duration(seconds: 20));
       request.followRedirects = true;
       request.maxRedirects = 5;
-      request.headers.set(HttpHeaders.acceptHeader, 'application/vnd.android.package-archive,*/*');
-      final response = await request.close().timeout(const Duration(seconds: 30));
+      request.headers.set(HttpHeaders.acceptHeader,
+          'application/vnd.android.package-archive,*/*');
+      final response =
+          await request.close().timeout(const Duration(seconds: 30));
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw AppUpdateException('Download server returned ${response.statusCode}.');
+        throw AppUpdateException(
+            'Download server returned ${response.statusCode}.');
       }
-      if (response.redirects.any((redirect) => redirect.location.scheme != 'https')) {
-        throw const AppUpdateException('The update URL redirected to an insecure location.');
+      if (response.redirects
+          .any((redirect) => redirect.location.scheme != 'https')) {
+        throw const AppUpdateException(
+            'The update URL redirected to an insecure location.');
       }
 
       final directory = await getTemporaryDirectory();
-      destination = File('${directory.path}${Platform.pathSeparator}friendlyhood-${update.info.latestVersionCode}.apk');
+      destination = File(
+          '${directory.path}${Platform.pathSeparator}friendlyhood-${update.info.latestVersionCode}.apk');
       if (await destination.exists()) await destination.delete();
       sink = destination.openWrite();
       final total = response.contentLength;
@@ -87,24 +97,36 @@ class AppUpdateService {
       await sink.close();
       sink = null;
 
-      final header = await destination.openRead(0, 2).fold<List<int>>(<int>[], (bytes, chunk) => bytes..addAll(chunk));
+      final header = await destination
+          .openRead(0, 2)
+          .fold<List<int>>(<int>[], (bytes, chunk) => bytes..addAll(chunk));
       if (header.length < 2 || header[0] != 0x50 || header[1] != 0x4B) {
         await destination.delete();
-        throw const AppUpdateException('The downloaded file is not a valid APK.');
+        throw const AppUpdateException(
+            'The downloaded file is not a valid APK.');
       }
       onProgress(1);
       return destination.path;
     } on SocketException {
-      if (destination != null && await destination.exists()) await destination.delete();
-      throw const AppUpdateException('No internet connection. Check your network and retry.');
+      if (destination != null && await destination.exists()) {
+        await destination.delete();
+      }
+      throw const AppUpdateException(
+          'No internet connection. Check your network and retry.');
     } on TimeoutException {
-      if (destination != null && await destination.exists()) await destination.delete();
-      throw const AppUpdateException('The update download timed out. Please retry.');
+      if (destination != null && await destination.exists()) {
+        await destination.delete();
+      }
+      throw const AppUpdateException(
+          'The update download timed out. Please retry.');
     } on AppUpdateException {
       rethrow;
     } catch (_) {
-      if (destination != null && await destination.exists()) await destination.delete();
-      throw const AppUpdateException('Unable to download the update. Please retry.');
+      if (destination != null && await destination.exists()) {
+        await destination.delete();
+      }
+      throw const AppUpdateException(
+          'Unable to download the update. Please retry.');
     } finally {
       await sink?.close();
       client.close(force: true);
@@ -112,14 +134,17 @@ class AppUpdateService {
   }
 
   Future<bool> canInstallPackages() async {
-    return await _installerChannel.invokeMethod<bool>('canInstallPackages') ?? false;
+    return await _installerChannel.invokeMethod<bool>('canInstallPackages') ??
+        false;
   }
 
   Future<void> openInstallPermissionSettings() {
-    return _installerChannel.invokeMethod<void>('openInstallPermissionSettings');
+    return _installerChannel
+        .invokeMethod<void>('openInstallPermissionSettings');
   }
 
   Future<void> launchInstaller(String apkPath) {
-    return _installerChannel.invokeMethod<void>('launchInstaller', {'path': apkPath});
+    return _installerChannel
+        .invokeMethod<void>('launchInstaller', {'path': apkPath});
   }
 }

@@ -56,23 +56,26 @@ class _LoginScreenState extends State<LoginScreen> {
                             BoxShadow(color: Color(0x556C5CE7), blurRadius: 40),
                           ],
                         ),
-                        child: const Icon(Icons.hub_rounded, size: 42, color: Colors.white),
+                        child: const Icon(Icons.hub_rounded,
+                            size: 42, color: Colors.white),
                       ),
                       const SizedBox(height: 28),
                       Text(
-                        'friendlyhood-split',
-                        style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -1.5,
-                            ),
+                        'FrenSplit',
+                        style:
+                            Theme.of(context).textTheme.displaySmall?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -1.5,
+                                ),
                       ),
                       const SizedBox(height: 12),
                       Text(
                         'Spend together. Settle smarter.',
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: Colors.white60,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: Colors.white60,
+                                ),
                       ),
                       const SizedBox(height: 42),
                       Card(
@@ -80,9 +83,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           padding: const EdgeInsets.all(24),
                           child: Column(
                             children: [
-                              const _Feature(icon: Icons.account_balance_wallet_rounded, text: 'One shared wallet'),
-                              const _Feature(icon: Icons.call_split_rounded, text: 'Instant expense splits'),
-                              const _Feature(icon: Icons.insights_rounded, text: 'Personal monthly insights'),
+                              const _Feature(
+                                  icon: Icons.account_balance_wallet_rounded,
+                                  text: 'One shared wallet'),
+                              const _Feature(
+                                  icon: Icons.call_split_rounded,
+                                  text: 'Instant expense splits'),
+                              const _Feature(
+                                  icon: Icons.insights_rounded,
+                                  text: 'Personal monthly insights'),
                               const SizedBox(height: 24),
                               SizedBox(
                                 width: double.infinity,
@@ -92,10 +101,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                   icon: _loading
                                       ? const SizedBox.square(
                                           dimension: 20,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2),
                                         )
-                                      : const Icon(Icons.g_mobiledata_rounded, size: 30),
-                                  label: Text(_loading ? 'Connecting…' : 'Continue with Google'),
+                                      : const Icon(Icons.g_mobiledata_rounded,
+                                          size: 30),
+                                  label: Text(_loading
+                                      ? 'Connecting…'
+                                      : 'Continue with Google'),
                                 ),
                               ),
                             ],

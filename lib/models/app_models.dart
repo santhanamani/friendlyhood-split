@@ -4,6 +4,7 @@ class SplitGroup {
     required this.name,
     required this.emoji,
     required this.ownerId,
+    required this.accessCode,
     required this.members,
     required this.createdAt,
   });
@@ -12,33 +13,57 @@ class SplitGroup {
   final String name;
   final String emoji;
   final String ownerId;
+  final String accessCode;
   final Map<String, GroupMember> members;
   final int createdAt;
 
+  SplitGroup copyWith({
+    String? name,
+    String? accessCode,
+    Map<String, GroupMember>? members,
+  }) =>
+      SplitGroup(
+        id: id,
+        name: name ?? this.name,
+        emoji: emoji,
+        ownerId: ownerId,
+        accessCode: accessCode ?? this.accessCode,
+        members: members ?? this.members,
+        createdAt: createdAt,
+      );
+
   factory SplitGroup.fromMap(String id, Map<dynamic, dynamic> data) {
-    final rawMembers = Map<dynamic, dynamic>.from(data['members'] as Map? ?? {});
+    final rawMembers =
+        Map<dynamic, dynamic>.from(data['members'] as Map? ?? {});
     return SplitGroup(
       id: id,
       name: data['name'] as String? ?? 'Untitled group',
       emoji: data['emoji'] as String? ?? '✨',
       ownerId: data['ownerId'] as String? ?? '',
+      accessCode: data['accessCode'] as String? ?? '',
       createdAt: (data['createdAt'] as num?)?.toInt() ?? 0,
       members: rawMembers.map((key, value) => MapEntry(
             key.toString(),
-            GroupMember.fromMap(key.toString(), Map<dynamic, dynamic>.from(value as Map)),
+            GroupMember.fromMap(
+                key.toString(), Map<dynamic, dynamic>.from(value as Map)),
           )),
     );
   }
 }
 
 class GroupMember {
-  const GroupMember({required this.uid, required this.name, required this.email, required this.role});
+  const GroupMember(
+      {required this.uid,
+      required this.name,
+      required this.email,
+      required this.role});
   final String uid;
   final String name;
   final String email;
   final String role;
 
-  factory GroupMember.fromMap(String uid, Map<dynamic, dynamic> data) => GroupMember(
+  factory GroupMember.fromMap(String uid, Map<dynamic, dynamic> data) =>
+      GroupMember(
         uid: uid,
         name: data['name'] as String? ?? 'Friend',
         email: data['email'] as String? ?? '',
@@ -54,6 +79,10 @@ class LedgerEntry {
     required this.category,
     required this.amount,
     required this.paidBy,
+    required this.createdBy,
+    required this.paymentSource,
+    required this.walletUsed,
+    required this.personalPaid,
     required this.splitAmong,
     required this.createdAt,
   });
@@ -63,21 +92,36 @@ class LedgerEntry {
   final String category;
   final double amount;
   final String paidBy;
+  final String createdBy;
+  final String paymentSource;
+  final double walletUsed;
+  final double personalPaid;
   final Map<String, double> splitAmong;
   final int createdAt;
 
   factory LedgerEntry.fromMap(String id, Map<dynamic, dynamic> data) {
-    final rawSplit = Map<dynamic, dynamic>.from(data['splitAmong'] as Map? ?? {});
+    final rawSplit =
+        Map<dynamic, dynamic>.from(data['splitAmong'] as Map? ?? {});
+    final type = data['type'] as String? ?? 'expense';
+    final amount = (data['amount'] as num?)?.toDouble() ?? 0;
+    final paymentSource = data['paymentSource'] as String? ??
+        (type == 'expense' ? 'wallet' : 'deposit');
     return LedgerEntry(
       id: id,
-      type: data['type'] as String? ?? 'expense',
+      type: type,
       title: data['title'] as String? ?? 'Transaction',
       category: data['category'] as String? ?? 'Other',
-      amount: (data['amount'] as num?)?.toDouble() ?? 0,
+      amount: amount,
       paidBy: data['paidBy'] as String? ?? '',
-      splitAmong: rawSplit.map((k, v) => MapEntry(k.toString(), (v as num).toDouble())),
+      createdBy: data['createdBy'] as String? ?? '',
+      paymentSource: paymentSource,
+      walletUsed: (data['walletUsed'] as num?)?.toDouble() ??
+          (type == 'expense' && paymentSource == 'wallet' ? amount : 0),
+      personalPaid: (data['personalPaid'] as num?)?.toDouble() ??
+          (type == 'expense' && paymentSource == 'personal' ? amount : 0),
+      splitAmong:
+          rawSplit.map((k, v) => MapEntry(k.toString(), (v as num).toDouble())),
       createdAt: (data['createdAt'] as num?)?.toInt() ?? 0,
     );
   }
 }
-

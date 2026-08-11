@@ -17,13 +17,15 @@ class AppUpdateInfo {
 
   factory AppUpdateInfo.fromMap(Map<dynamic, dynamic> data) {
     final url = Uri.tryParse(data['apkUrl']?.toString() ?? '');
-    final versionCode = int.tryParse(data['latestVersionCode']?.toString() ?? '');
+    final versionCode =
+        int.tryParse(data['latestVersionCode']?.toString() ?? '');
     if (url == null || url.scheme != 'https' || versionCode == null) {
       throw const FormatException('Invalid app update configuration.');
     }
 
     return AppUpdateInfo(
-      latestVersion: data['latestVersion']?.toString() ?? versionCode.toString(),
+      latestVersion:
+          data['latestVersion']?.toString() ?? versionCode.toString(),
       latestVersionCode: versionCode,
       apkUrl: url,
       forceUpdate: data['forceUpdate'] == true,
@@ -32,7 +34,7 @@ class AppUpdateInfo {
           : 'New update available',
       updateMessage: data['updateMessage']?.toString().trim().isNotEmpty == true
           ? data['updateMessage'].toString()
-          : 'A newer version of friendlyhood-split is ready.',
+          : 'A newer version of FrenSplit is ready.',
     );
   }
 }
@@ -48,4 +50,3 @@ class AvailableAppUpdate {
   final String installedVersion;
   final int installedVersionCode;
 }
-

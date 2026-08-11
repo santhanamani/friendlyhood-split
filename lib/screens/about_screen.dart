@@ -28,7 +28,9 @@ class _AboutScreenState extends State<AboutScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('About', style: TextStyle(fontWeight: FontWeight.w800))),
+      appBar: AppBar(
+          title: const Text('About',
+              style: TextStyle(fontWeight: FontWeight.w800))),
       body: FutureBuilder<_AboutData>(
         future: _data,
         builder: (context, snapshot) {
@@ -38,25 +40,33 @@ class _AboutScreenState extends State<AboutScreen> {
             children: [
               const _BrandHero(),
               const SizedBox(height: 18),
-              _VersionCard(data: data, loading: snapshot.connectionState == ConnectionState.waiting),
+              _VersionCard(
+                  data: data,
+                  loading: snapshot.connectionState == ConnectionState.waiting),
               const SizedBox(height: 26),
-              const _SectionTitle(title: 'Who we are', icon: Icons.people_alt_rounded),
+              const _SectionTitle(
+                  title: 'Who we are', icon: Icons.people_alt_rounded),
               const SizedBox(height: 10),
               const _StoryCard(
-                text: 'We are friends building for friends. Friendlyhood Split is a simple, transparent shared-money companion made for trips, food, homes and every moment a group enjoys together.',
+                text:
+                    'We are friends building for friends. FrenSplit is a simple, transparent shared-money companion made for trips, food, homes and every moment a group enjoys together.',
               ),
               const SizedBox(height: 22),
-              const _SectionTitle(title: 'Our vision', icon: Icons.visibility_rounded),
+              const _SectionTitle(
+                  title: 'Our vision', icon: Icons.visibility_rounded),
               const SizedBox(height: 10),
               const _StoryCard(
-                text: 'Life is Simple. Our vision is a world where money never creates awkwardness between friends—every shared expense is clear, fair and easy to understand.',
+                text:
+                    'Life is Simple. Our vision is a world where money never creates awkwardness between friends—every shared expense is clear, fair and easy to understand.',
                 accent: Color(0xFF65DDBA),
               ),
               const SizedBox(height: 22),
-              const _SectionTitle(title: 'Our mission', icon: Icons.rocket_launch_rounded),
+              const _SectionTitle(
+                  title: 'Our mission', icon: Icons.rocket_launch_rounded),
               const SizedBox(height: 10),
               const _StoryCard(
-                text: 'To make group spending effortless through secure shared wallets, instant splits and useful personal insights, while keeping every member informed.',
+                text:
+                    'To make group spending effortless through secure shared wallets, instant splits and useful personal insights, while keeping every member informed.',
                 accent: Color(0xFFFFB45E),
               ),
               const SizedBox(height: 30),
@@ -89,7 +99,10 @@ class _BrandHero extends StatelessWidget {
             colors: [Color(0xFF745CFF), Color(0xFF372B86), Color(0xFF173C3A)],
           ),
           boxShadow: const [
-            BoxShadow(color: Color(0x445F4AE3), blurRadius: 34, offset: Offset(0, 14)),
+            BoxShadow(
+                color: Color(0x445F4AE3),
+                blurRadius: 34,
+                offset: Offset(0, 14)),
           ],
         ),
         child: const Column(
@@ -97,14 +110,18 @@ class _BrandHero extends StatelessWidget {
             _AppMark(),
             SizedBox(height: 18),
             Text(
-              'friendlyhood-split',
+              'FrenSplit',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 27, fontWeight: FontWeight.w900, letterSpacing: -.8),
+              style: TextStyle(
+                  fontSize: 27,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -.8),
             ),
             SizedBox(height: 7),
             Text(
               'Spend together. Settle smarter.',
-              style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w500),
+              style:
+                  TextStyle(color: Colors.white70, fontWeight: FontWeight.w500),
             ),
           ],
         ),
@@ -134,23 +151,36 @@ class _VersionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final installed = data == null ? '—' : '${data!.package.version} (${data!.package.buildNumber})';
+    final installed = data == null
+        ? '—'
+        : '${data!.package.version} (${data!.package.buildNumber})';
     final release = data?.release;
-    final latest = release == null ? 'Unavailable' : '${release.latestVersion} (${release.latestVersionCode})';
+    final latest = release == null
+        ? 'Unavailable'
+        : '${release.latestVersion} (${release.latestVersionCode})';
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           children: [
             if (loading) const LinearProgressIndicator(minHeight: 2),
-            _InfoRow(icon: Icons.phone_android_rounded, label: 'Installed version', value: installed),
+            _InfoRow(
+                icon: Icons.phone_android_rounded,
+                label: 'Installed version',
+                value: installed),
             const Divider(height: 25),
-            _InfoRow(icon: Icons.new_releases_rounded, label: 'Latest release', value: latest, highlight: true),
+            _InfoRow(
+                icon: Icons.new_releases_rounded,
+                label: 'Latest release',
+                value: latest,
+                highlight: true),
             if (release != null && release.updateMessage.isNotEmpty) ...[
               const SizedBox(height: 14),
               Align(
                 alignment: Alignment.centerLeft,
-                child: Text(release.updateMessage, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                child: Text(release.updateMessage,
+                    style:
+                        const TextStyle(color: Colors.white54, fontSize: 12)),
               ),
             ],
           ],
@@ -161,7 +191,11 @@ class _VersionCard extends StatelessWidget {
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.icon, required this.label, required this.value, this.highlight = false});
+  const _InfoRow(
+      {required this.icon,
+      required this.label,
+      required this.value,
+      this.highlight = false});
   final IconData icon;
   final String label;
   final String value;
@@ -170,10 +204,18 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
         children: [
-          Icon(icon, color: highlight ? const Color(0xFF65DDBA) : const Color(0xFF9B8EFF)),
+          Icon(icon,
+              color: highlight
+                  ? const Color(0xFF65DDBA)
+                  : const Color(0xFF9B8EFF)),
           const SizedBox(width: 13),
-          Expanded(child: Text(label, style: const TextStyle(color: Colors.white60))),
-          Text(value, style: TextStyle(fontWeight: FontWeight.w800, color: highlight ? const Color(0xFF65DDBA) : Colors.white)),
+          Expanded(
+              child:
+                  Text(label, style: const TextStyle(color: Colors.white60))),
+          Text(value,
+              style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: highlight ? const Color(0xFF65DDBA) : Colors.white)),
         ],
       );
 }
@@ -188,7 +230,11 @@ class _SectionTitle extends StatelessWidget {
         children: [
           Icon(icon, size: 20, color: const Color(0xFF9B8EFF)),
           const SizedBox(width: 9),
-          Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+          Text(title,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w900)),
         ],
       );
 }
@@ -204,9 +250,15 @@ class _StoryCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFF151721),
           borderRadius: BorderRadius.circular(21),
-          border: Border(left: BorderSide(color: accent, width: 3), top: const BorderSide(color: Color(0xFF252836)), right: const BorderSide(color: Color(0xFF252836)), bottom: const BorderSide(color: Color(0xFF252836))),
+          border: Border(
+              left: BorderSide(color: accent, width: 3),
+              top: const BorderSide(color: Color(0xFF252836)),
+              right: const BorderSide(color: Color(0xFF252836)),
+              bottom: const BorderSide(color: Color(0xFF252836))),
         ),
-        child: Text(text, style: const TextStyle(color: Colors.white70, height: 1.55, fontSize: 14)),
+        child: Text(text,
+            style: const TextStyle(
+                color: Colors.white70, height: 1.55, fontSize: 14)),
       );
 }
 

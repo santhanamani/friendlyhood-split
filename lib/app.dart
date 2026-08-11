@@ -12,7 +12,7 @@ class FriendlyhoodSplitApp extends StatelessWidget {
   Widget build(BuildContext context) {
     const seed = Color(0xFF6C5CE7);
     return MaterialApp(
-      title: 'friendlyhood-split',
+      title: 'FrenSplit',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.dark,
       darkTheme: ThemeData(
@@ -33,6 +33,16 @@ class FriendlyhoodSplitApp extends StatelessWidget {
             side: BorderSide(color: Color(0xFF252836)),
           ),
         ),
+        popupMenuTheme: const PopupMenuThemeData(
+          color: Color(0xFF2A2840),
+          surfaceTintColor: Color(0xFF2A2840),
+          elevation: 18,
+          shadowColor: Colors.black,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            side: BorderSide(color: Color(0xFF5B5678)),
+          ),
+        ),
         inputDecorationTheme: const InputDecorationTheme(
           filled: true,
           fillColor: Color(0xFF171925),
@@ -47,7 +57,8 @@ class FriendlyhoodSplitApp extends StatelessWidget {
           stream: FirebaseAuth.instance.authStateChanges(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(body: Center(child: CircularProgressIndicator()));
+              return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()));
             }
             return snapshot.data == null
                 ? const LoginScreen()

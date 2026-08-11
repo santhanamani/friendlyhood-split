@@ -71,7 +71,8 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
         setState(() {
           _downloading = false;
           _awaitingPermission = true;
-          _error = 'Allow “Install unknown apps” for friendlyhood-split, then return here.';
+          _error =
+              'Allow “Install unknown apps” for FrenSplit, then return here.';
         });
         await widget.service.openInstallPermissionSettings();
       }
@@ -92,7 +93,8 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
       if (!await widget.service.canInstallPackages()) {
         if (mounted) {
           setState(() {
-            _error = 'Installation permission was not enabled. Tap Update Now to try again.';
+            _error =
+                'Installation permission was not enabled. Tap Update Now to try again.';
           });
         }
         return;
@@ -101,7 +103,8 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
       if (path != null) await _launchInstaller(path);
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Could not verify installation permission. Please retry.');
+        setState(() =>
+            _error = 'Could not verify installation permission. Please retry.');
       }
     }
   }
@@ -117,7 +120,8 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
   @override
   Widget build(BuildContext context) {
     final latest = widget.update.info;
-    final percent = _progress == null ? null : (_progress! * 100).clamp(0, 100).round();
+    final percent =
+        _progress == null ? null : (_progress! * 100).clamp(0, 100).round();
 
     return PopScope(
       canPop: !_forceUpdate && !_downloading,
@@ -153,9 +157,19 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
                 ),
                 child: Row(
                   children: [
-                    Expanded(child: _Version(label: 'Current', value: '${widget.update.installedVersion} (${widget.update.installedVersionCode})')),
-                    const Icon(Icons.arrow_forward_rounded, color: Colors.white38),
-                    Expanded(child: _Version(label: 'Latest', value: '${latest.latestVersion} (${latest.latestVersionCode})', highlight: true)),
+                    Expanded(
+                        child: _Version(
+                            label: 'Current',
+                            value:
+                                '${widget.update.installedVersion} (${widget.update.installedVersionCode})')),
+                    const Icon(Icons.arrow_forward_rounded,
+                        color: Colors.white38),
+                    Expanded(
+                        child: _Version(
+                            label: 'Latest',
+                            value:
+                                '${latest.latestVersion} (${latest.latestVersionCode})',
+                            highlight: true)),
                   ],
                 ),
               ),
@@ -164,7 +178,9 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
                 LinearProgressIndicator(value: _progress),
                 const SizedBox(height: 8),
                 Text(
-                  percent == null ? 'Downloading update…' : 'Downloading… $percent%',
+                  percent == null
+                      ? 'Downloading update…'
+                      : 'Downloading… $percent%',
                   style: const TextStyle(color: Colors.white60, fontSize: 12),
                 ),
               ],
@@ -173,7 +189,8 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
                 Text(
                   _error!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Color(0xFFFF9B92), fontSize: 13),
+                  style:
+                      const TextStyle(color: Color(0xFFFF9B92), fontSize: 13),
                 ),
               ],
             ],
@@ -189,7 +206,8 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
           FilledButton.icon(
             onPressed: _downloading ? null : _startUpdate,
             icon: const Icon(Icons.download_rounded),
-            label: Text(_downloadedApkPath == null ? 'Update Now' : 'Continue Update'),
+            label: Text(
+                _downloadedApkPath == null ? 'Update Now' : 'Continue Update'),
           ),
         ],
       ),
@@ -198,7 +216,8 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
 }
 
 class _Version extends StatelessWidget {
-  const _Version({required this.label, required this.value, this.highlight = false});
+  const _Version(
+      {required this.label, required this.value, this.highlight = false});
   final String label;
   final String value;
   final bool highlight;
@@ -206,7 +225,8 @@ class _Version extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(
         children: [
-          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+          Text(label,
+              style: const TextStyle(color: Colors.white54, fontSize: 11)),
           const SizedBox(height: 4),
           Text(
             value,
