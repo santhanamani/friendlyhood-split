@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'widgets/app_notice_gate.dart';
 import 'widgets/app_update_gate.dart';
 
 class FriendlyhoodSplitApp extends StatelessWidget {
@@ -52,18 +53,20 @@ class FriendlyhoodSplitApp extends StatelessWidget {
           ),
         ),
       ),
-      home: AppUpdateGate(
-        child: StreamBuilder<User?>(
-          stream: FirebaseAuth.instance.authStateChanges(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                  body: Center(child: CircularProgressIndicator()));
-            }
-            return snapshot.data == null
-                ? const LoginScreen()
-                : HomeScreen(user: snapshot.data!);
-          },
+      home: AppNoticeGate(
+        child: AppUpdateGate(
+          child: StreamBuilder<User?>(
+            stream: FirebaseAuth.instance.authStateChanges(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()));
+              }
+              return snapshot.data == null
+                  ? const LoginScreen()
+                  : HomeScreen(user: snapshot.data!);
+            },
+          ),
         ),
       ),
     );

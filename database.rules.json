@@ -6,6 +6,10 @@
       ".read": true,
       ".write": false
     },
+    "app_notice": {
+      ".read": true,
+      ".write": false
+    },
     "users": {
       "$uid": {
         ".read": "$uid === auth.uid",
@@ -17,6 +21,9 @@
       "$groupId": {
         ".write": "auth != null && ((!data.exists() && newData.child('ownerId').val() === auth.uid && newData.child('members').child(auth.uid).child('role').val() === 'admin') || data.child('ownerId').val() === auth.uid)",
         ".validate": "newData.hasChildren(['name', 'ownerId', 'members', 'createdAt'])",
+        "currencyCode": {
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length === 3)"
+        },
         "members": {
           "$uid": {
             ".write": "auth != null && $uid === auth.uid && !data.exists() && newData.child('role').val() === 'viewer' && root.child('joinCodes').child(root.child('groups').child($groupId).child('accessCode').val()).val() === $groupId"
@@ -81,6 +88,28 @@
           ".write": "auth != null && !newData.exists() && (root.child('groupChats').child($groupId).child('messages').child($messageId).child('senderId').val() === auth.uid || root.child('groups').child($groupId).child('ownerId').val() === auth.uid)",
           "$uid": {
             ".write": "auth != null && $uid === auth.uid && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
+            ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 8)"
+          }
+        }
+      }
+    },
+    "chatReadState": {
+      "$uid": {
+        ".read": "auth != null && $uid === auth.uid",
+        "$groupId": {
+          ".write": "auth != null && (($uid === auth.uid && root.child('groups').child($groupId).child('members').child(auth.uid).exists()) || (!newData.exists() && root.child('groups').child($groupId).child('ownerId').val() === auth.uid))",
+          ".validate": "!newData.exists() || newData.isNumber()"
+        }
+      }
+    },
+    "transactionReactions": {
+      "$groupId": {
+        ".read": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
+        ".write": "auth != null && !newData.exists() && root.child('groups').child($groupId).child('ownerId').val() === auth.uid",
+        "$transactionId": {
+          ".write": "auth != null && !newData.exists() && root.child('groups').child($groupId).child('ownerId').val() === auth.uid",
+          "$uid": {
+            ".write": "auth != null && $uid === auth.uid && root.child('groups').child($groupId).child('members').child(auth.uid).exists() && root.child('transactions').child($groupId).child($transactionId).exists()",
             ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 8)"
           }
         }

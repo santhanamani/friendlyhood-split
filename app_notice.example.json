@@ -1,0 +1,7 @@
+{
+  "enabled": false,
+  "type": "maintenance",
+  "title": "We’ll be right back",
+  "message": "BroSplit is temporarily unavailable while we make improvements.",
+  "updatedAt": 0
+}

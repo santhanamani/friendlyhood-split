@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -55,6 +56,75 @@ class DatabaseService {
           .toList()
         ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
       return messages;
+    });
+  }
+
+  Stream<ChatBadge> watchChatBadge(String groupId, {String? mentionName}) {
+    late final StreamController<ChatBadge> controller;
+    StreamSubscription<DatabaseEvent>? messagesSubscription;
+    StreamSubscription<DatabaseEvent>? readSubscription;
+    var messages = <GroupMessage>[];
+    var lastReadAt = 0;
+
+    void emit() {
+      final unread = messages
+          .where((item) =>
+              item.createdAt > lastReadAt && item.senderId != user.uid)
+          .toList();
+      final displayName = mentionName?.trim().isNotEmpty == true
+          ? mentionName!.trim()
+          : user.displayName?.trim() ?? '';
+      final mentionPattern = displayName.isEmpty
+          ? null
+          : RegExp('@${RegExp.escape(displayName)}(?=\\s|[.,!?;:]|\$)',
+              caseSensitive: false);
+      controller.add(ChatBadge(
+        unreadCount: unread.length,
+        hasMention: mentionPattern != null &&
+            unread.any((item) => mentionPattern.hasMatch(item.text)),
+      ));
+    }
+
+    controller = StreamController<ChatBadge>(
+      onListen: () {
+        messagesSubscription = _db
+            .ref('groupChats/$groupId/messages')
+            .limitToLast(100)
+            .onValue
+            .listen((event) {
+          final value = event.snapshot.value;
+          if (value is! Map) {
+            messages = [];
+          } else {
+            messages = value.entries
+                .map((entry) => GroupMessage.fromMap(entry.key.toString(),
+                    Map<dynamic, dynamic>.from(entry.value as Map)))
+                .toList();
+          }
+          emit();
+        }, onError: controller.addError);
+        readSubscription = _db
+            .ref('chatReadState/${user.uid}/$groupId')
+            .onValue
+            .listen((event) {
+          lastReadAt = (event.snapshot.value as num?)?.toInt() ?? 0;
+          emit();
+        }, onError: controller.addError);
+      },
+      onCancel: () async {
+        await messagesSubscription?.cancel();
+        await readSubscription?.cancel();
+      },
+    );
+    return controller.stream;
+  }
+
+  Future<void> markChatRead(String groupId, int lastMessageAt) async {
+    if (lastMessageAt <= 0) return;
+    final ref = _db.ref('chatReadState/${user.uid}/$groupId');
+    await ref.runTransaction((current) {
+      final existing = (current as num?)?.toInt() ?? 0;
+      return Transaction.success(max(existing, lastMessageAt));
     });
   }
 
@@ -141,6 +211,24 @@ class DatabaseService {
   Future<void> reactToMessage(String groupId, String messageId, String emoji) =>
       _db.ref('messageReactions/$groupId/$messageId/${user.uid}').set(emoji);
 
+  Stream<Map<String, String>> watchTransactionReactions(
+      String groupId, String transactionId) {
+    return _db
+        .ref('transactionReactions/$groupId/$transactionId')
+        .onValue
+        .map((event) {
+      final value = event.snapshot.value;
+      if (value is! Map) return <String, String>{};
+      return value.map((key, value) => MapEntry('$key', '$value'));
+    });
+  }
+
+  Future<void> reactToTransaction(
+          String groupId, String transactionId, String emoji) =>
+      _db
+          .ref('transactionReactions/$groupId/$transactionId/${user.uid}')
+          .set(emoji);
+
   Future<SplitGroup?> getGroup(String groupId) async {
     final snapshot = await _db.ref('groups/$groupId').get();
     if (!snapshot.exists || snapshot.value is! Map) return null;
@@ -165,7 +253,8 @@ class DatabaseService {
     return max(0, deposited - walletSpent).toDouble();
   }
 
-  Future<String> createGroup(String name, String emoji) async {
+  Future<String> createGroup(
+      String name, String emoji, String currencyCode) async {
     final ref = _db.ref('groups').push();
     final id = ref.key!;
     final member = {
@@ -181,6 +270,7 @@ class DatabaseService {
         'emoji': emoji,
         'ownerId': user.uid,
         'accessCode': accessCode,
+        'currencyCode': currencyCode,
         'createdAt': ServerValue.timestamp,
         'members': {user.uid: member},
       },
@@ -244,17 +334,29 @@ class DatabaseService {
         'role': 'viewer',
         'joinedAt': ServerValue.timestamp,
       },
+      'groups/$groupId/formerMembers/$uid': null,
       'groupMembers/$uid/$groupId': true,
     });
   }
 
-  Future<void> removeMember(String groupId, String uid) => _db.ref().update({
-        'groups/$groupId/members/$uid': null,
-        'groupMembers/$uid/$groupId': null,
+  Future<void> removeMember(String groupId, GroupMember member) =>
+      _db.ref().update({
+        'groups/$groupId/members/${member.uid}': null,
+        'groups/$groupId/formerMembers/${member.uid}': {
+          'name': member.name,
+          'email': member.email,
+          'role': 'former',
+          'removedAt': ServerValue.timestamp,
+        },
+        'groupMembers/${member.uid}/$groupId': null,
+        'chatReadState/${member.uid}/$groupId': null,
       });
 
   Future<void> renameGroup(String groupId, String name) =>
       _db.ref('groups/$groupId/name').set(name.trim());
+
+  Future<void> updateGroupCurrency(String groupId, String currencyCode) =>
+      _db.ref('groups/$groupId/currencyCode').set(currencyCode.toUpperCase());
 
   Future<void> deleteGroup(SplitGroup group) async {
     final transactions = await _db.ref('transactions/${group.id}').get();
@@ -264,9 +366,12 @@ class DatabaseService {
       'groupChats/${group.id}': null,
       'pollVotes/${group.id}': null,
       'messageReactions/${group.id}': null,
+      'transactionReactions/${group.id}': null,
       if (group.accessCode.isNotEmpty) 'joinCodes/${group.accessCode}': null,
       for (final uid in group.members.keys)
         'groupMembers/$uid/${group.id}': null,
+      for (final uid in group.members.keys)
+        'chatReadState/$uid/${group.id}': null,
       for (final transactionId in transactionIds)
         if (transactionId != null)
           'transactions/${group.id}/$transactionId': null,
@@ -368,5 +473,8 @@ class DatabaseService {
   }
 
   Future<void> deleteTransaction(String groupId, String transactionId) =>
-      _db.ref('transactions/$groupId/$transactionId').remove();
+      _db.ref().update({
+        'transactions/$groupId/$transactionId': null,
+        'transactionReactions/$groupId/$transactionId': null,
+      });
 }

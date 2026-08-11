@@ -5,7 +5,9 @@ class SplitGroup {
     required this.emoji,
     required this.ownerId,
     required this.accessCode,
+    required this.currencyCode,
     required this.members,
+    required this.formerMembers,
     required this.createdAt,
   });
 
@@ -14,13 +16,17 @@ class SplitGroup {
   final String emoji;
   final String ownerId;
   final String accessCode;
+  final String currencyCode;
   final Map<String, GroupMember> members;
+  final Map<String, GroupMember> formerMembers;
   final int createdAt;
 
   SplitGroup copyWith({
     String? name,
     String? accessCode,
+    String? currencyCode,
     Map<String, GroupMember>? members,
+    Map<String, GroupMember>? formerMembers,
   }) =>
       SplitGroup(
         id: id,
@@ -28,21 +34,31 @@ class SplitGroup {
         emoji: emoji,
         ownerId: ownerId,
         accessCode: accessCode ?? this.accessCode,
+        currencyCode: currencyCode ?? this.currencyCode,
         members: members ?? this.members,
+        formerMembers: formerMembers ?? this.formerMembers,
         createdAt: createdAt,
       );
 
   factory SplitGroup.fromMap(String id, Map<dynamic, dynamic> data) {
     final rawMembers =
         Map<dynamic, dynamic>.from(data['members'] as Map? ?? {});
+    final rawFormerMembers =
+        Map<dynamic, dynamic>.from(data['formerMembers'] as Map? ?? {});
     return SplitGroup(
       id: id,
       name: data['name'] as String? ?? 'Untitled group',
       emoji: data['emoji'] as String? ?? '✨',
       ownerId: data['ownerId'] as String? ?? '',
       accessCode: data['accessCode'] as String? ?? '',
+      currencyCode: data['currencyCode'] as String? ?? 'INR',
       createdAt: (data['createdAt'] as num?)?.toInt() ?? 0,
       members: rawMembers.map((key, value) => MapEntry(
+            key.toString(),
+            GroupMember.fromMap(
+                key.toString(), Map<dynamic, dynamic>.from(value as Map)),
+          )),
+      formerMembers: rawFormerMembers.map((key, value) => MapEntry(
             key.toString(),
             GroupMember.fromMap(
                 key.toString(), Map<dynamic, dynamic>.from(value as Map)),
@@ -171,4 +187,15 @@ class GroupMessage {
       editedAt: (data['editedAt'] as num?)?.toInt() ?? 0,
     );
   }
+}
+
+class ChatBadge {
+  const ChatBadge({required this.unreadCount, required this.hasMention});
+
+  static const empty = ChatBadge(unreadCount: 0, hasMention: false);
+
+  final int unreadCount;
+  final bool hasMention;
+
+  String get countLabel => unreadCount > 99 ? '99+' : '$unreadCount';
 }
