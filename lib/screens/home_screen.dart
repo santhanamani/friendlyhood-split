@@ -12,6 +12,24 @@ import '../services/database_service.dart';
 import 'about_screen.dart';
 import 'group_chat_screen.dart';
 
+const _defaultExpenseCategories = <String>[
+  'Food',
+  'Travel',
+  'Stay',
+  'Shopping',
+  'Bills',
+  'Other',
+];
+
+List<String> _expenseCategoriesFor(SplitGroup group, {String? include}) {
+  final seen = <String>{};
+  return <String>[
+    ..._defaultExpenseCategories,
+    ...group.customExpenseCategories,
+    if (include != null && include.trim().isNotEmpty) include.trim(),
+  ].where((value) => seen.add(value.toLowerCase())).toList();
+}
+
 InputDecoration _dropdownDecoration(String label, IconData icon) =>
     InputDecoration(
       labelText: label,
@@ -1281,14 +1299,7 @@ class _GroupScreenState extends State<GroupScreen> {
                           value: category,
                           label: 'Category',
                           leadingIcon: Icons.category_rounded,
-                          items: [
-                            'Food',
-                            'Travel',
-                            'Stay',
-                            'Shopping',
-                            'Bills',
-                            'Other'
-                          ]
+                          items: _expenseCategoriesFor(group, include: category)
                               .map((value) =>
                                   _DropdownChoice(value: value, label: value))
                               .toList(),
@@ -1426,7 +1437,7 @@ class _GroupScreenState extends State<GroupScreen> {
     String type = 'expense';
     String category = 'Food';
     String paidBy = currentUid;
-    String paymentSource = 'personal';
+    String paymentSource = isAdmin ? 'wallet' : 'personal';
     var occurredAt = DateTime.now();
     final selected = group.members.keys.toSet();
     final title = TextEditingController();
@@ -1478,14 +1489,7 @@ class _GroupScreenState extends State<GroupScreen> {
                                 value: category,
                                 label: 'Category',
                                 leadingIcon: Icons.category_rounded,
-                                items: [
-                                  'Food',
-                                  'Travel',
-                                  'Stay',
-                                  'Shopping',
-                                  'Bills',
-                                  'Other'
-                                ]
+                                items: _expenseCategoriesFor(group)
                                     .map((value) => _DropdownChoice(
                                         value: value, label: value))
                                     .toList(),
@@ -1777,6 +1781,8 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
               ),
             ),
             const SizedBox(height: 12),
+            _expenseCategoriesCard(),
+            const SizedBox(height: 12),
             _accessCodeCard(),
             const SizedBox(height: 24),
             Row(children: [
@@ -1897,6 +1903,56 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
           ],
         ),
       );
+
+  Widget _expenseCategoriesCard() {
+    final categories = _expenseCategoriesFor(group);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 15, 12, 16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.category_rounded, color: Color(0xFFFFB45E)),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Expense categories',
+                      style: TextStyle(fontWeight: FontWeight.w800)),
+                  Text('Available only inside this group',
+                      style: TextStyle(color: Colors.white54, fontSize: 12)),
+                ],
+              ),
+            ),
+            if (isAdmin)
+              IconButton.filledTonal(
+                onPressed: _addExpenseCategory,
+                tooltip: 'Add category',
+                icon: const Icon(Icons.add_rounded),
+              )
+            else
+              const Icon(Icons.visibility_outlined, color: Colors.white38),
+          ]),
+          const SizedBox(height: 13),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: categories
+                .map((category) => Chip(
+                      avatar: group.customExpenseCategories.any((item) =>
+                              item.toLowerCase() == category.toLowerCase())
+                          ? const Icon(Icons.star_rounded,
+                              size: 16, color: Color(0xFFFFB45E))
+                          : null,
+                      label: Text(category),
+                      visualDensity: VisualDensity.compact,
+                    ))
+                .toList(),
+          ),
+        ]),
+      ),
+    );
+  }
 
   Widget _accessCodeCard() => Container(
         padding: const EdgeInsets.all(18),
@@ -2097,6 +2153,69 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
           duration: const Duration(seconds: 2),
           content: Text('Currency changed to ${selected.code}')));
     }
+  }
+
+  Future<void> _addExpenseCategory() async {
+    final controller = TextEditingController();
+    final category = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        scrollable: true,
+        title: const Text('Add expense category'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 30,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Category name',
+            hintText: 'Example: Medical',
+            prefixIcon: Icon(Icons.category_rounded),
+          ),
+          onSubmitted: (value) {
+            final trimmed = value.trim();
+            if (trimmed.isNotEmpty) Navigator.pop(dialogContext, trimmed);
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) Navigator.pop(dialogContext, value);
+            },
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (category == null || !mounted) return;
+    final exists = _expenseCategoriesFor(group)
+        .any((item) => item.toLowerCase() == category.toLowerCase());
+    if (exists) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        duration: Duration(milliseconds: 2500),
+        content: Text('This category already exists in the group.'),
+      ));
+      return;
+    }
+    await widget.database.addExpenseCategory(group.id, category);
+    if (!mounted) return;
+    setState(() => group = group.copyWith(
+          customExpenseCategories: [
+            ...group.customExpenseCategories,
+            category,
+          ],
+        ));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      duration: const Duration(milliseconds: 2500),
+      content: Text('$category added for ${group.name}.'),
+    ));
   }
 
   Future<void> _addMember() async {

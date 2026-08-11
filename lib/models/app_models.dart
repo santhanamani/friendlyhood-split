@@ -6,6 +6,7 @@ class SplitGroup {
     required this.ownerId,
     required this.accessCode,
     required this.currencyCode,
+    required this.customExpenseCategories,
     required this.members,
     required this.formerMembers,
     required this.createdAt,
@@ -17,6 +18,7 @@ class SplitGroup {
   final String ownerId;
   final String accessCode;
   final String currencyCode;
+  final List<String> customExpenseCategories;
   final Map<String, GroupMember> members;
   final Map<String, GroupMember> formerMembers;
   final int createdAt;
@@ -25,6 +27,7 @@ class SplitGroup {
     String? name,
     String? accessCode,
     String? currencyCode,
+    List<String>? customExpenseCategories,
     Map<String, GroupMember>? members,
     Map<String, GroupMember>? formerMembers,
   }) =>
@@ -35,6 +38,8 @@ class SplitGroup {
         ownerId: ownerId,
         accessCode: accessCode ?? this.accessCode,
         currencyCode: currencyCode ?? this.currencyCode,
+        customExpenseCategories:
+            customExpenseCategories ?? this.customExpenseCategories,
         members: members ?? this.members,
         formerMembers: formerMembers ?? this.formerMembers,
         createdAt: createdAt,
@@ -45,6 +50,8 @@ class SplitGroup {
         Map<dynamic, dynamic>.from(data['members'] as Map? ?? {});
     final rawFormerMembers =
         Map<dynamic, dynamic>.from(data['formerMembers'] as Map? ?? {});
+    final rawCustomCategories = Map<dynamic, dynamic>.from(
+        data['customExpenseCategories'] as Map? ?? {});
     return SplitGroup(
       id: id,
       name: data['name'] as String? ?? 'Untitled group',
@@ -52,6 +59,11 @@ class SplitGroup {
       ownerId: data['ownerId'] as String? ?? '',
       accessCode: data['accessCode'] as String? ?? '',
       currencyCode: data['currencyCode'] as String? ?? 'INR',
+      customExpenseCategories: rawCustomCategories.values
+          .whereType<String>()
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .toList(),
       createdAt: (data['createdAt'] as num?)?.toInt() ?? 0,
       members: rawMembers.map((key, value) => MapEntry(
             key.toString(),

@@ -358,6 +358,14 @@ class DatabaseService {
   Future<void> updateGroupCurrency(String groupId, String currencyCode) =>
       _db.ref('groups/$groupId/currencyCode').set(currencyCode.toUpperCase());
 
+  Future<void> addExpenseCategory(String groupId, String category) {
+    final value = category.trim();
+    if (value.isEmpty || value.length > 30) {
+      throw ArgumentError('Category must contain 1 to 30 characters.');
+    }
+    return _db.ref('groups/$groupId/customExpenseCategories').push().set(value);
+  }
+
   Future<void> deleteGroup(SplitGroup group) async {
     final transactions = await _db.ref('transactions/${group.id}').get();
     final transactionIds = transactions.children.map((item) => item.key);

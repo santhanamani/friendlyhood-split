@@ -38,6 +38,23 @@ void main() {
     expect(entry.personalPaid, 500);
   });
 
+  test('group parses its own custom expense categories', () {
+    final group = SplitGroup.fromMap('group-1', {
+      'name': 'Trip',
+      'ownerId': 'admin',
+      'createdAt': 1,
+      'members': {
+        'admin': {'name': 'Admin', 'email': '', 'role': 'admin'},
+      },
+      'customExpenseCategories': {
+        'first': 'Medical',
+        'second': 'Fuel',
+      },
+    });
+
+    expect(group.customExpenseCategories, ['Medical', 'Fuel']);
+  });
+
   test('app update configuration validates and parses correctly', () {
     final update = AppUpdateInfo.fromMap({
       'latestVersion': '1.0.2',

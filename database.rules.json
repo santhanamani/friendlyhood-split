@@ -24,6 +24,11 @@
         "currencyCode": {
           ".validate": "!newData.exists() || (newData.isString() && newData.val().length === 3)"
         },
+        "customExpenseCategories": {
+          "$categoryId": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+          }
+        },
         "members": {
           "$uid": {
             ".write": "auth != null && $uid === auth.uid && !data.exists() && newData.child('role').val() === 'viewer' && root.child('joinCodes').child(root.child('groups').child($groupId).child('accessCode').val()).val() === $groupId"
