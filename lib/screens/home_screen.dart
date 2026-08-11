@@ -7,9 +7,9 @@ import 'package:intl/intl.dart';
 
 import '../models/app_models.dart';
 import '../models/currency_data.dart';
-import '../services/auth_service.dart';
 import '../services/database_service.dart';
-import 'about_screen.dart';
+import '../services/theme_controller.dart';
+import 'app_settings_screen.dart';
 import 'group_chat_screen.dart';
 
 const _defaultExpenseCategories = <String>[
@@ -30,48 +30,96 @@ List<String> _expenseCategoriesFor(SplitGroup group, {String? include}) {
   ].where((value) => seen.add(value.toLowerCase())).toList();
 }
 
-InputDecoration _dropdownDecoration(String label, IconData icon) =>
-    InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon, color: const Color(0xFF9B8EFF)),
-      prefixIconConstraints: const BoxConstraints(minWidth: 46),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 17),
-      filled: true,
-      fillColor: const Color(0xFF1B1D2B),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Color(0xFF37344D)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Color(0xFF9B8EFF), width: 1.5),
-      ),
-    );
+double _confirmedDepositCreditFor(
+    Iterable<LedgerEntry> entries, String memberId) {
+  var credit = 0.0;
+  for (final entry in entries.where((entry) => entry.isConfirmedDeposit)) {
+    if (entry.paidBy == memberId) credit += entry.amount;
+    if (entry.isMemberDeposit && entry.depositTo == memberId) {
+      credit -= entry.amount;
+    }
+  }
+  return credit;
+}
 
-InputDecoration _amountDecoration(String currencyCode) => InputDecoration(
-      labelText: 'Amount',
-      hintText: '0.00',
-      prefixIcon: Center(
-        widthFactor: 1,
-        child: Text(currencyForCode(currencyCode).symbol,
-            style: const TextStyle(
-                color: Color(0xFF65DDBA),
-                fontSize: 20,
-                fontWeight: FontWeight.w700)),
-      ),
-      prefixIconConstraints: const BoxConstraints(minWidth: 46),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-      filled: true,
-      fillColor: const Color(0xFF202333),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Color(0xFF55506F), width: 1.2),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Color(0xFF9B8EFF), width: 2),
-      ),
-    );
+double _confirmedSettlementCreditFor(
+    Iterable<LedgerEntry> entries, String memberId) {
+  var credit = 0.0;
+  for (final entry in entries.where((entry) => entry.type == 'expense')) {
+    for (final settlement in entry.settlements.values
+        .where((settlement) => settlement.isConfirmed)) {
+      final amount = entry.splitAmong[settlement.memberId] ?? 0;
+      if (settlement.memberId == memberId) credit += amount;
+      if (entry.paidBy == memberId) credit -= amount;
+    }
+  }
+  return credit;
+}
+
+typedef _ExpenseSettlementAction = void Function(
+    LedgerEntry entry, String memberUid);
+typedef _ExpenseObligation = ({
+  LedgerEntry entry,
+  String debtorUid,
+  double amount,
+});
+
+Color _surfaceAccent(BuildContext context, Color color) =>
+    Theme.of(context).brightness == Brightness.light
+        ? Color.lerp(color, Colors.black, .28)!
+        : color;
+
+InputDecoration _dropdownDecoration(
+    BuildContext context, String label, IconData icon) {
+  final isLight = Theme.of(context).brightness == Brightness.light;
+  return InputDecoration(
+    labelText: label,
+    prefixIcon: Icon(icon, color: const Color(0xFF9B8EFF)),
+    prefixIconConstraints: const BoxConstraints(minWidth: 46),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 17),
+    filled: true,
+    fillColor: isLight ? const Color(0xFFF9F8FD) : const Color(0xFF1B1D2B),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(
+          color: isLight ? const Color(0xFFD7D3E2) : const Color(0xFF37344D)),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: Color(0xFF9B8EFF), width: 1.5),
+    ),
+  );
+}
+
+InputDecoration _amountDecoration(BuildContext context, String currencyCode) {
+  final isLight = Theme.of(context).brightness == Brightness.light;
+  return InputDecoration(
+    labelText: 'Amount',
+    hintText: '0.00',
+    prefixIcon: Center(
+      widthFactor: 1,
+      child: Text(currencyForCode(currencyCode).symbol,
+          style: const TextStyle(
+              color: Color(0xFF65DDBA),
+              fontSize: 20,
+              fontWeight: FontWeight.w700)),
+    ),
+    prefixIconConstraints: const BoxConstraints(minWidth: 46),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+    filled: true,
+    fillColor: isLight ? const Color(0xFFF3FAF7) : const Color(0xFF202333),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(
+          color: isLight ? const Color(0xFFBED8CF) : const Color(0xFF55506F),
+          width: 1.2),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: Color(0xFF9B8EFF), width: 2),
+    ),
+  );
+}
 
 class _DropdownChoice {
   const _DropdownChoice({
@@ -120,7 +168,7 @@ class _FriendlyDropdown extends StatelessWidget {
       onTap: items.isEmpty ? null : () => _openPicker(context),
       child: InputDecorator(
         isEmpty: selected == null,
-        decoration: _dropdownDecoration(label, leadingIcon),
+        decoration: _dropdownDecoration(context, label, leadingIcon),
         child: Row(children: [
           Expanded(
             child: Text(
@@ -128,7 +176,9 @@ class _FriendlyDropdown extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                  color: selected == null ? Colors.white54 : Colors.white),
+                  color: selected == null
+                      ? Theme.of(context).colorScheme.onSurfaceVariant
+                      : Theme.of(context).colorScheme.onSurface),
             ),
           ),
           if (selected?.isArchived == true) ...[
@@ -147,8 +197,10 @@ class _FriendlyDropdown extends StatelessWidget {
             ),
           ],
           const SizedBox(width: 8),
-          const Icon(Icons.keyboard_arrow_down_rounded,
-              color: Color(0xFFB7AEFF)),
+          Icon(Icons.keyboard_arrow_down_rounded,
+              color: Theme.of(context).brightness == Brightness.light
+                  ? const Color(0xFF62599C)
+                  : const Color(0xFFB7AEFF)),
         ]),
       ),
     );
@@ -286,25 +338,33 @@ class _TransactionTypeSelector extends StatelessWidget {
   final ValueChanged<String> onChanged;
 
   @override
-  Widget build(BuildContext context) => Container(
-        height: 52,
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: const Color(0xFF12141E),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF454159)),
-        ),
-        child: Row(
-          children: [
-            _option('expense', 'Expense', Icons.receipt_long_rounded),
-            const SizedBox(width: 4),
-            _option('contribution', 'Deposit', Icons.savings_rounded),
-          ],
-        ),
-      );
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return Container(
+      height: 52,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: isLight ? const Color(0xFFF2F0F8) : const Color(0xFF12141E),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+            color: isLight ? const Color(0xFFD6D1E2) : const Color(0xFF454159)),
+      ),
+      child: Row(
+        children: [
+          _option(context, 'expense', 'Expense', Icons.receipt_long_rounded),
+          const SizedBox(width: 4),
+          _option(context, 'contribution', 'Deposit', Icons.savings_rounded),
+        ],
+      ),
+    );
+  }
 
-  Widget _option(String option, String label, IconData icon) {
+  Widget _option(
+      BuildContext context, String option, String label, IconData icon) {
     final selected = value == option;
+    final inactive = Theme.of(context).brightness == Brightness.light
+        ? const Color(0xFF565363)
+        : Colors.white70;
     return Expanded(
       child: InkWell(
         onTap: () => onChanged(option),
@@ -319,12 +379,11 @@ class _TransactionTypeSelector extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon,
-                  size: 18, color: selected ? Colors.white : Colors.white60),
+              Icon(icon, size: 18, color: selected ? Colors.white : inactive),
               const SizedBox(width: 7),
               Text(label,
                   style: TextStyle(
-                      color: selected ? Colors.white : Colors.white70,
+                      color: selected ? Colors.white : inactive,
                       fontWeight: FontWeight.w700)),
             ],
           ),
@@ -401,27 +460,38 @@ Future<DateTime?> _pickTransactionDateTime(
   return DateTime(date.year, date.month, date.day, time.hour, time.minute);
 }
 
-Widget _transactionDateTimeField(DateTime value, VoidCallback onTap) =>
-    Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1B1D2B),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF37344D)),
-      ),
-      child: ListTile(
-        onTap: onTap,
-        leading: const Icon(Icons.event_rounded, color: Color(0xFF9B8EFF)),
-        title: const Text('Transaction date & time',
-            style: TextStyle(color: Colors.white60, fontSize: 12)),
-        subtitle: Text(DateFormat('d MMM yyyy, h:mm a').format(value),
-            style: const TextStyle(fontWeight: FontWeight.w800)),
-        trailing: const Icon(Icons.edit_calendar_rounded),
-      ),
-    );
+Widget _transactionDateTimeField(
+    BuildContext context, DateTime value, VoidCallback onTap) {
+  final isLight = Theme.of(context).brightness == Brightness.light;
+  return Container(
+    decoration: BoxDecoration(
+      color: isLight ? const Color(0xFFF6F4FB) : const Color(0xFF1B1D2B),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(
+          color: isLight ? const Color(0xFFD8D3E3) : const Color(0xFF37344D)),
+    ),
+    child: ListTile(
+      onTap: onTap,
+      leading: const Icon(Icons.event_rounded, color: Color(0xFF9B8EFF)),
+      title: Text('Transaction date & time',
+          style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 12)),
+      subtitle: Text(DateFormat('d MMM yyyy, h:mm a').format(value),
+          style: const TextStyle(fontWeight: FontWeight.w800)),
+      trailing: const Icon(Icons.edit_calendar_rounded),
+    ),
+  );
+}
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.user});
+  const HomeScreen({
+    super.key,
+    required this.user,
+    required this.themeController,
+  });
   final User user;
+  final AppThemeController themeController;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -429,6 +499,20 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late final DatabaseService database = DatabaseService(widget.user);
+
+  @override
+  void initState() {
+    super.initState();
+    _syncProfilePhoto();
+  }
+
+  Future<void> _syncProfilePhoto() async {
+    try {
+      await database.syncCurrentUserProfileToGroups();
+    } catch (_) {
+      // Existing group data still works with the initial fallback.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -460,7 +544,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ?.copyWith(fontWeight: FontWeight.w800)),
                         const Spacer(),
                         Text('${groups.length} groups',
-                            style: const TextStyle(color: Colors.white54)),
+                            style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant)),
                       ],
                     ),
                   ),
@@ -502,6 +589,7 @@ class _HomeScreenState extends State<HomeScreen> {
           CircleAvatar(
             radius: 23,
             backgroundColor: const Color(0xFF29263F),
+            foregroundColor: Colors.white,
             backgroundImage: widget.user.photoURL == null
                 ? null
                 : NetworkImage(widget.user.photoURL!),
@@ -514,8 +602,9 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Good to see you',
-                    style: TextStyle(color: Colors.white54)),
+                Text('Good to see you',
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 Text(widget.user.displayName ?? 'Friend',
                     style: const TextStyle(
                         fontWeight: FontWeight.w800, fontSize: 17)),
@@ -523,76 +612,76 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           IconButton.filledTonal(
-            tooltip: 'Copy my member ID',
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: widget.user.uid));
-              _message('Member ID copied');
-            },
-            icon: const Icon(Icons.badge_outlined),
-          ),
-          IconButton(
-            tooltip: 'About BroSplit',
+            tooltip: 'App settings',
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const AboutScreen()),
+              MaterialPageRoute(
+                builder: (_) => AppSettingsScreen(
+                  user: widget.user,
+                  themeController: widget.themeController,
+                ),
+              ),
             ),
-            icon: const Icon(Icons.info_outline_rounded),
+            icon: const Icon(Icons.settings_rounded),
           ),
-          IconButton(
-              onPressed: AuthService().signOut,
-              icon: const Icon(Icons.logout_rounded)),
         ],
       );
 
-  Widget _hero(List<SplitGroup> groups) => Container(
-        margin: const EdgeInsets.only(top: 16),
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF745CFF), Color(0xFF4738AE), Color(0xFF252055)],
+  Widget _hero(List<SplitGroup> groups) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final muted = isLight ? const Color(0xFF5E5878) : Colors.white70;
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isLight
+              ? const [Color(0xFFE8E3FF), Color(0xFFDCD5FF), Color(0xFFD7F3ED)]
+              : const [Color(0xFF745CFF), Color(0xFF4738AE), Color(0xFF252055)],
+        ),
+        boxShadow: [
+          BoxShadow(
+              color:
+                  isLight ? const Color(0x225F4AE3) : const Color(0x445F4AE3),
+              blurRadius: 35,
+              offset: const Offset(0, 15))
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('CONNECTED MONEY',
+                    style: TextStyle(
+                        fontSize: 11, letterSpacing: 1.6, color: muted)),
+                const SizedBox(height: 10),
+                Text('${groups.length}',
+                    style: const TextStyle(
+                        fontSize: 38, height: 1, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 6),
+                Text('active money circles', style: TextStyle(color: muted)),
+              ],
+            ),
           ),
-          boxShadow: const [
-            BoxShadow(
-                color: Color(0x445F4AE3), blurRadius: 35, offset: Offset(0, 15))
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('CONNECTED MONEY',
-                      style: TextStyle(
-                          fontSize: 11,
-                          letterSpacing: 1.6,
-                          color: Colors.white70)),
-                  const SizedBox(height: 10),
-                  Text('${groups.length}',
-                      style: const TextStyle(
-                          fontSize: 38,
-                          height: 1,
-                          fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 6),
-                  const Text('active money circles',
-                      style: TextStyle(color: Colors.white70)),
-                ],
-              ),
-            ),
-            Container(
-              width: 74,
-              height: 74,
-              decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .12),
-                  shape: BoxShape.circle),
-              child: const Icon(Icons.blur_circular_rounded, size: 40),
-            ),
-          ],
-        ),
-      );
+          Container(
+            width: 74,
+            height: 74,
+            decoration: BoxDecoration(
+                color: isLight
+                    ? Colors.white.withValues(alpha: .58)
+                    : Colors.white.withValues(alpha: .12),
+                shape: BoxShape.circle),
+            child: const Icon(Icons.blur_circular_rounded, size: 40),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _emptyState() => Center(
         child: Padding(
@@ -609,10 +698,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       .titleLarge
                       ?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                   'Create a group for a trip, flat, food or anything you share.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white54)),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ],
           ),
         ),
@@ -792,7 +882,10 @@ class _GroupCard extends StatelessWidget {
                   height: 54,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                      color: const Color(0xFF242137),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primaryContainer
+                          .withValues(alpha: .55),
                       borderRadius: BorderRadius.circular(18)),
                   child:
                       Text(group.emoji, style: const TextStyle(fontSize: 27)),
@@ -817,7 +910,10 @@ class _GroupCard extends StatelessWidget {
                       const SizedBox(height: 5),
                       Text(
                           '${group.members.length} members • ${group.ownerId == currentUid ? 'Admin' : 'Member'}',
-                          style: const TextStyle(color: Colors.white54)),
+                          style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant)),
                     ],
                   ),
                 ),
@@ -977,6 +1073,7 @@ class GroupScreen extends StatefulWidget {
 
 class _GroupScreenState extends State<GroupScreen> {
   late SplitGroup group = widget.group;
+  int dashboardSection = 0;
   late final Stream<ChatBadge> chatBadgeStream = widget.database.watchChatBadge(
       widget.group.id,
       mentionName: widget.group.members[widget.currentUid]?.name);
@@ -995,31 +1092,34 @@ class _GroupScreenState extends State<GroupScreen> {
     return members;
   }
 
-  List<_DropdownChoice> _memberChoices({String? includeFormerUid}) {
-    final choices = orderedMembers
-        .map((member) => _DropdownChoice(
-              value: member.uid,
-              label: member.name,
-              subtitle: member.email.isEmpty ? 'Active member' : member.email,
-              avatarText: member.name.isEmpty ? '?' : member.name[0],
-            ))
-        .toList();
-    if (includeFormerUid != null &&
-        !group.members.containsKey(includeFormerUid)) {
-      final former = group.formerMembers[includeFormerUid];
-      final name = former?.name.trim();
-      choices.insert(
-        0,
-        _DropdownChoice(
-          value: includeFormerUid,
-          label: name == null || name.isEmpty ? 'Former member' : name,
-          subtitle: former?.email.isNotEmpty == true
-              ? former!.email
-              : 'Historical contributor',
-          avatarText: name == null || name.isEmpty ? '?' : name[0],
-          isArchived: true,
-        ),
-      );
+  List<_DropdownChoice> _depositTargetChoices(
+      {String? includeMemberUid, String? senderUid}) {
+    final excludedUid = senderUid ?? currentUid;
+    final choices = <_DropdownChoice>[
+      const _DropdownChoice(
+        value: 'wallet',
+        label: 'Group wallet',
+        subtitle: 'Admin confirmation required',
+      ),
+      ...orderedMembers
+          .where((member) => member.uid != excludedUid)
+          .map((member) => _DropdownChoice(
+                value: 'member:${member.uid}',
+                label: member.name,
+                subtitle: 'Member deposit',
+                avatarText: member.name.isEmpty ? '?' : member.name[0],
+              )),
+    ];
+    if (includeMemberUid != null &&
+        !group.members.containsKey(includeMemberUid)) {
+      final former = group.formerMembers[includeMemberUid];
+      choices.add(_DropdownChoice(
+        value: 'member:$includeMemberUid',
+        label: former?.name ?? 'Former member',
+        subtitle: 'Historical recipient',
+        avatarText: former?.name.isNotEmpty == true ? former!.name[0] : '?',
+        isArchived: true,
+      ));
     }
     return choices;
   }
@@ -1064,14 +1164,14 @@ class _GroupScreenState extends State<GroupScreen> {
         builder: (context, snapshot) {
           final entries = snapshot.data ?? [];
           final contributed = entries
-              .where((e) => e.type == 'contribution')
+              .where((e) => e.isConfirmedDeposit && e.isWalletDeposit)
               .fold<double>(0, (sum, e) => sum + e.amount);
           final spent = entries
               .where((e) => e.type == 'expense')
               .fold<double>(0, (sum, e) => sum + e.walletUsed);
-          final myDeposits = entries
-              .where((e) => e.type == 'contribution' && e.paidBy == currentUid)
-              .fold<double>(0, (sum, e) => sum + e.amount);
+          final myDeposits = _confirmedDepositCreditFor(entries, currentUid);
+          final mySettlements =
+              _confirmedSettlementCreditFor(entries, currentUid);
           final myPersonalPaid = entries
               .where((e) => e.type == 'expense' && e.paidBy == currentUid)
               .fold<double>(0, (sum, e) => sum + e.personalPaid);
@@ -1079,8 +1179,8 @@ class _GroupScreenState extends State<GroupScreen> {
               .where((e) => e.type == 'expense')
               .fold<double>(
                   0, (sum, e) => sum + (e.splitAmong[currentUid] ?? 0));
-          final myNetCredit =
-              math.max(0.0, myDeposits + myPersonalPaid - myShare);
+          final myNetCredit = math.max(
+              0.0, myDeposits + myPersonalPaid - myShare + mySettlements);
           final now = DateTime.now();
           final thisMonth = entries.where((entry) {
             final date = DateTime.fromMillisecondsSinceEpoch(entry.createdAt);
@@ -1111,6 +1211,25 @@ class _GroupScreenState extends State<GroupScreen> {
           }
           final categoryRanking = categories.entries.toList()
             ..sort((a, b) => b.value.compareTo(a.value));
+          var myOutstandingToPay = 0.0;
+          var myOutstandingToReceive = 0.0;
+          for (final entry in entries.where((entry) =>
+              entry.type == 'expense' &&
+              entry.paymentSource == 'personal' &&
+              entry.personalPaid > 0)) {
+            for (final share in entry.splitAmong.entries) {
+              if (share.key == entry.paidBy ||
+                  entry.settlements[share.key]?.isConfirmed == true) {
+                continue;
+              }
+              if (share.key == currentUid && entry.paidBy != currentUid) {
+                myOutstandingToPay += share.value;
+              }
+              if (entry.paidBy == currentUid && share.key != currentUid) {
+                myOutstandingToReceive += share.value;
+              }
+            }
+          }
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 110),
             children: [
@@ -1125,94 +1244,90 @@ class _GroupScreenState extends State<GroupScreen> {
                       ? null
                       : categoryRanking.first.key,
                   monthChange: monthChange),
-              const SizedBox(height: 26),
-              Row(children: [
-                Text('Members',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w800)),
-                const Spacer(),
-                Text('${group.members.length}',
-                    style: const TextStyle(color: Colors.white54)),
-              ]),
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 83,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: group.members.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
-                  itemBuilder: (context, index) {
-                    final member = orderedMembers[index];
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(18),
-                      onTap: isAdmin || member.uid == currentUid
-                          ? () => showModalBottomSheet(
-                                context: context,
-                                isScrollControlled: true,
-                                builder: (_) => _MemberDashboard(
-                                  member: member,
-                                  entries: entries,
-                                  database: database,
-                                  groupId: group.id,
-                                  members: {
-                                    ...group.formerMembers,
-                                    ...group.members,
-                                  },
-                                  currencyCode: group.currencyCode,
-                                ),
-                              )
-                          : null,
-                      child: Container(
-                        width: 112,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                            color: const Color(0xFF151721),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: const Color(0xFF252836))),
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(children: [
-                                CircleAvatar(
-                                    radius: 13,
-                                    child: Text(member.name.isEmpty
-                                        ? '?'
-                                        : member.name[0])),
-                                const Spacer(),
-                                if (member.role == 'admin')
-                                  const Icon(Icons.shield_rounded,
-                                      size: 15, color: Color(0xFF65DDBA))
-                              ]),
-                              const Spacer(),
-                              Text(member.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w700)),
-                            ]),
-                      ),
-                    );
+              const SizedBox(height: 18),
+              _DashboardNavigation(
+                selectedIndex: dashboardSection,
+                onChanged: (value) => setState(() => dashboardSection = value),
+              ),
+              const SizedBox(height: 22),
+              if (dashboardSection == 0) ...[
+                _MemberPositionCard(
+                  member: group.members[currentUid],
+                  memberCount: group.members.length,
+                  currencyCode: group.currencyCode,
+                  toPay: myOutstandingToPay,
+                  toReceive: myOutstandingToReceive,
+                  onOpenDashboard: () {
+                    final member = group.members[currentUid];
+                    if (member != null) {
+                      _openMemberDashboard(member, entries);
+                    }
                   },
+                  onOpenSettlements: () => setState(() => dashboardSection = 1),
                 ),
-              ),
-              const SizedBox(height: 26),
-              _TransactionHistory(
-                entries: entries,
-                currentUid: currentUid,
-                isAdmin: isAdmin,
-                database: database,
-                groupId: group.id,
-                members: {
-                  ...group.formerMembers,
-                  ...group.members,
-                },
-                currencyCode: group.currencyCode,
-                onEdit: (entry) => _editTransaction(context, entry),
-                onDelete: (entry) =>
-                    database.deleteTransaction(group.id, entry.id),
-              ),
+                if (isAdmin) ...[
+                  const SizedBox(height: 10),
+                  _AdminPeopleDirectoryCard(
+                    members: orderedMembers,
+                    onTap: () => _openPeopleDirectory(entries),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                _TransactionHistory(
+                  title: 'Recent activity',
+                  previewLimit: 3,
+                  compact: true,
+                  showFilters: false,
+                  showHeaderCount: false,
+                  entries: entries,
+                  currentUid: currentUid,
+                  isAdmin: isAdmin,
+                  database: database,
+                  groupId: group.id,
+                  members: {
+                    ...group.formerMembers,
+                    ...group.members,
+                  },
+                  currencyCode: group.currencyCode,
+                  onEdit: (entry) => _editTransaction(context, entry),
+                  onDelete: (entry) =>
+                      database.deleteTransaction(group.id, entry.id),
+                  onConfirmDeposit: _confirmDeposit,
+                  onRejectDeposit: _rejectDeposit,
+                ),
+              ] else if (dashboardSection == 1) ...[
+                _SettlementOverview(
+                  entries: entries,
+                  currentUid: currentUid,
+                  isAdmin: isAdmin,
+                  members: {
+                    ...group.formerMembers,
+                    ...group.members,
+                  },
+                  currencyCode: group.currencyCode,
+                  onRequestSettlement: _requestExpenseSettlement,
+                  onConfirmSettlement: _confirmExpenseSettlement,
+                  onRemindSettlement: _remindExpenseSettlement,
+                ),
+              ] else ...[
+                _TransactionHistory(
+                  entries: entries,
+                  currentUid: currentUid,
+                  isAdmin: isAdmin,
+                  database: database,
+                  groupId: group.id,
+                  members: {
+                    ...group.formerMembers,
+                    ...group.members,
+                  },
+                  currencyCode: group.currencyCode,
+                  onEdit: (entry) => _editTransaction(context, entry),
+                  onDelete: (entry) =>
+                      database.deleteTransaction(group.id, entry.id),
+                  onConfirmDeposit: _confirmDeposit,
+                  onRejectDeposit: _rejectDeposit,
+                ),
+              ],
             ],
           );
         },
@@ -1221,6 +1336,139 @@ class _GroupScreenState extends State<GroupScreen> {
         onPressed: () => _addTransaction(context),
         icon: const Icon(Icons.add_rounded),
         label: const Text('Add'),
+      ),
+    );
+  }
+
+  void _openMemberDashboard(GroupMember member, List<LedgerEntry> entries) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _MemberDashboard(
+        member: member,
+        entries: entries,
+        database: database,
+        groupId: group.id,
+        members: {
+          ...group.formerMembers,
+          ...group.members,
+        },
+        currencyCode: group.currencyCode,
+      ),
+    );
+  }
+
+  void _openPeopleDirectory(List<LedgerEntry> entries) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => FractionallySizedBox(
+        heightFactor: .82,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0x229B8EFF),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child:
+                    const Icon(Icons.groups_rounded, color: Color(0xFFB7AEFF)),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('People & balances',
+                          style: TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.w900)),
+                      Text('${group.members.length} active members',
+                          style: const TextStyle(
+                              color: Colors.white54, fontSize: 11)),
+                    ]),
+              ),
+              IconButton(
+                onPressed: () => Navigator.pop(sheetContext),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ]),
+            const SizedBox(height: 14),
+            Expanded(
+              child: ListView.separated(
+                itemCount: orderedMembers.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final member = orderedMembers[index];
+                  final deposits =
+                      _confirmedDepositCreditFor(entries, member.uid);
+                  final settlements =
+                      _confirmedSettlementCreditFor(entries, member.uid);
+                  final share = entries
+                      .where((entry) => entry.type == 'expense')
+                      .fold<double>(
+                          0,
+                          (sum, entry) =>
+                              sum + (entry.splitAmong[member.uid] ?? 0));
+                  final personalPaid = entries
+                      .where((entry) =>
+                          entry.type == 'expense' && entry.paidBy == member.uid)
+                      .fold<double>(
+                          0, (sum, entry) => sum + entry.personalPaid);
+                  final netCredit = math.max(
+                      0.0, deposits + personalPaid - share + settlements);
+                  return Card(
+                    margin: EdgeInsets.zero,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 13, vertical: 5),
+                      leading: _MemberAvatar(member: member),
+                      title: Text(member.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w800)),
+                      subtitle: Text(
+                        member.uid == currentUid
+                            ? 'You • Admin'
+                            : member.email.isEmpty
+                                ? 'Member'
+                                : member.email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              const Text('Net credit',
+                                  style: TextStyle(
+                                      color: Colors.white38, fontSize: 9)),
+                              Text(formatMoney(netCredit, group.currencyCode),
+                                  style: const TextStyle(
+                                      color: Color(0xFF65DDBA),
+                                      fontWeight: FontWeight.w900)),
+                            ]),
+                        const SizedBox(width: 5),
+                        const Icon(Icons.chevron_right_rounded),
+                      ]),
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        _openMemberDashboard(member, entries);
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ]),
+        ),
       ),
     );
   }
@@ -1250,12 +1498,210 @@ class _GroupScreenState extends State<GroupScreen> {
     }
   }
 
+  Future<void> _confirmDeposit(LedgerEntry entry) async {
+    if (!entry.isPendingDeposit) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.verified_rounded,
+            color: Color(0xFF65DDBA), size: 38),
+        title: const Text('Confirm deposit?'),
+        content: Text(
+          '${formatMoney(entry.amount, group.currencyCode)} will be included in the confirmed balances.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.check_rounded),
+            label: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await database.reviewDeposit(
+      groupId: group.id,
+      entry: entry,
+      approve: true,
+      reviewerName: group.members[currentUid]?.name ?? 'Admin',
+      senderName: group.members[entry.paidBy]?.name ?? 'Member',
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        duration: Duration(milliseconds: 2500),
+        content: Text('Deposit confirmed.'),
+      ));
+    }
+  }
+
+  Future<void> _rejectDeposit(LedgerEntry entry) async {
+    if (!entry.isPendingDeposit) return;
+    final reason = TextEditingController();
+    final rejectionReason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        scrollable: true,
+        icon: const Icon(Icons.cancel_outlined,
+            color: Color(0xFFFF837A), size: 38),
+        title: const Text('Reject deposit?'),
+        content: TextField(
+          controller: reason,
+          autofocus: true,
+          maxLength: 120,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'Reason (optional)',
+            hintText: 'Example: Amount not received',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFD64D54)),
+            onPressed: () => Navigator.pop(dialogContext, reason.text.trim()),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+    reason.dispose();
+    if (rejectionReason == null || !mounted) return;
+    await database.reviewDeposit(
+      groupId: group.id,
+      entry: entry,
+      approve: false,
+      reviewerName: group.members[currentUid]?.name ?? 'Admin',
+      senderName: group.members[entry.paidBy]?.name ?? 'Member',
+      rejectionReason: rejectionReason,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        duration: Duration(milliseconds: 2500),
+        content: Text('Deposit rejected and the sender was mentioned.'),
+      ));
+    }
+  }
+
+  Future<void> _requestExpenseSettlement(
+      LedgerEntry entry, String memberUid) async {
+    final amount = entry.splitAmong[memberUid] ?? 0;
+    if (amount <= 0 || memberUid != currentUid) return;
+    final payer =
+        group.members[entry.paidBy] ?? group.formerMembers[entry.paidBy];
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.handshake_rounded,
+            color: Color(0xFF9B8EFF), size: 38),
+        title: const Text('Mark as settled?'),
+        content: Text(
+          '${formatMoney(amount, group.currencyCode)} settlement request will be sent to ${payer?.name ?? 'the payer'} for confirmation.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Send request'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await database.requestExpenseSettlement(
+      groupId: group.id,
+      entry: entry,
+      debtorName: group.members[currentUid]?.name ?? 'Member',
+      payerName: payer?.name ?? 'Payer',
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        duration: Duration(milliseconds: 2500),
+        content: Text('Settlement request sent to the payer.'),
+      ));
+    }
+  }
+
+  Future<void> _confirmExpenseSettlement(
+      LedgerEntry entry, String memberUid) async {
+    final amount = entry.splitAmong[memberUid] ?? 0;
+    final debtor = group.members[memberUid] ?? group.formerMembers[memberUid];
+    if (amount <= 0 || debtor == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.verified_rounded,
+            color: Color(0xFF65DDBA), size: 38),
+        title: const Text('Confirm settlement?'),
+        content: Text(
+          '${debtor.name}’s ${formatMoney(amount, group.currencyCode)} share will be marked as settled.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.check_rounded),
+            label: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await database.confirmExpenseSettlement(
+      groupId: group.id,
+      entry: entry,
+      debtorUid: memberUid,
+      debtorName: debtor.name,
+      confirmerName: group.members[currentUid]?.name ?? 'Admin',
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        duration: Duration(milliseconds: 2500),
+        content: Text('Expense share marked as settled.'),
+      ));
+    }
+  }
+
+  Future<void> _remindExpenseSettlement(
+      LedgerEntry entry, String memberUid) async {
+    final amount = entry.splitAmong[memberUid] ?? 0;
+    final debtor = group.members[memberUid] ?? group.formerMembers[memberUid];
+    if (amount <= 0 || debtor == null) return;
+    await database.remindExpenseSettlement(
+      groupId: group.id,
+      entry: entry,
+      debtorName: debtor.name,
+      payerName: group.members[currentUid]?.name ?? 'Admin',
+      amount: amount,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        duration: const Duration(milliseconds: 2500),
+        content: Text('Reminder sent to ${debtor.name}.'),
+      ));
+    }
+  }
+
   Future<void> _editTransaction(BuildContext context, LedgerEntry entry) async {
     final title = TextEditingController(text: entry.title);
     final amount = TextEditingController(text: entry.amount.toString());
     var category = entry.category;
-    var paidBy = entry.paidBy;
     var paymentSource = entry.paymentSource;
+    var depositTargetValue =
+        entry.isMemberDeposit ? 'member:${entry.depositTo}' : 'wallet';
     var occurredAt = DateTime.fromMillisecondsSinceEpoch(entry.createdAt);
     final selected = entry.splitAmong.keys.toSet();
     final save = await showModalBottomSheet<bool>(
@@ -1312,10 +1758,11 @@ class _GroupScreenState extends State<GroupScreen> {
                         controller: amount,
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
-                        decoration: _amountDecoration(group.currencyCode),
+                        decoration:
+                            _amountDecoration(context, group.currencyCode),
                       ),
                       const SizedBox(height: 12),
-                      _transactionDateTimeField(occurredAt, () async {
+                      _transactionDateTimeField(context, occurredAt, () async {
                         final picked =
                             await _pickTransactionDateTime(context, occurredAt);
                         if (picked != null) {
@@ -1325,12 +1772,16 @@ class _GroupScreenState extends State<GroupScreen> {
                       const SizedBox(height: 12),
                       if (entry.type == 'contribution')
                         _FriendlyDropdown(
-                          value: paidBy,
-                          label: 'Contributed by',
-                          leadingIcon: Icons.person_rounded,
-                          items: _memberChoices(includeFormerUid: paidBy),
+                          value: depositTargetValue,
+                          label: 'Deposit to',
+                          leadingIcon: Icons.savings_rounded,
+                          items: _depositTargetChoices(
+                            includeMemberUid:
+                                entry.isMemberDeposit ? entry.depositTo : null,
+                            senderUid: entry.paidBy,
+                          ),
                           onChanged: (value) =>
-                              setLocalState(() => paidBy = value!),
+                              setLocalState(() => depositTargetValue = value!),
                         )
                       else ...[
                         _FriendlyDropdown(
@@ -1353,7 +1804,10 @@ class _GroupScreenState extends State<GroupScreen> {
                                   style:
                                       TextStyle(fontWeight: FontWeight.w700))),
                           Text('${selected.length}/${group.members.length}',
-                              style: const TextStyle(color: Colors.white54)),
+                              style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant)),
                         ]),
                         const SizedBox(height: 8),
                         Wrap(
@@ -1409,10 +1863,13 @@ class _GroupScreenState extends State<GroupScreen> {
     final value = double.tryParse(amount.text.trim());
     if (save != true || value == null || value <= 0) return;
     if (entry.type == 'contribution') {
-      await database.updateContribution(
+      final memberTarget = depositTargetValue.startsWith('member:');
+      await database.updateDeposit(
         groupId: group.id,
         transactionId: entry.id,
-        memberId: paidBy,
+        depositTarget: memberTarget ? 'member' : 'wallet',
+        depositTo:
+            memberTarget ? depositTargetValue.substring('member:'.length) : '',
         amount: value,
         occurredAt: occurredAt.millisecondsSinceEpoch,
       );
@@ -1436,8 +1893,8 @@ class _GroupScreenState extends State<GroupScreen> {
   Future<void> _addTransaction(BuildContext context) async {
     String type = 'expense';
     String category = 'Food';
-    String paidBy = currentUid;
     String paymentSource = isAdmin ? 'wallet' : 'personal';
+    String depositTargetValue = 'wallet';
     var occurredAt = DateTime.now();
     final selected = group.members.keys.toSet();
     final title = TextEditingController();
@@ -1468,16 +1925,11 @@ class _GroupScreenState extends State<GroupScreen> {
                                   .headlineSmall
                                   ?.copyWith(fontWeight: FontWeight.w900)),
                           const SizedBox(height: 18),
-                          if (isAdmin)
-                            _TransactionTypeSelector(
-                              value: type,
-                              onChanged: (value) => setLocalState(() {
-                                type = value;
-                                if (type == 'contribution') {
-                                  paymentSource = 'personal';
-                                }
-                              }),
-                            ),
+                          _TransactionTypeSelector(
+                            value: type,
+                            onChanged: (value) =>
+                                setLocalState(() => type = value),
+                          ),
                           const SizedBox(height: 16),
                           if (type == 'expense') ...[
                             TextField(
@@ -1502,10 +1954,11 @@ class _GroupScreenState extends State<GroupScreen> {
                               keyboardType:
                                   const TextInputType.numberWithOptions(
                                       decimal: true),
-                              decoration:
-                                  _amountDecoration(group.currencyCode)),
+                              decoration: _amountDecoration(
+                                  context, group.currencyCode)),
                           const SizedBox(height: 10),
-                          _transactionDateTimeField(occurredAt, () async {
+                          _transactionDateTimeField(context, occurredAt,
+                              () async {
                             final picked = await _pickTransactionDateTime(
                                 context, occurredAt);
                             if (picked != null) {
@@ -1515,12 +1968,13 @@ class _GroupScreenState extends State<GroupScreen> {
                           const SizedBox(height: 10),
                           if (type == 'contribution')
                             _FriendlyDropdown(
-                                value: paidBy,
-                                label: 'Contributed by',
-                                leadingIcon: Icons.person_rounded,
-                                items: _memberChoices(),
-                                onChanged: (value) =>
-                                    setLocalState(() => paidBy = value!)),
+                              value: depositTargetValue,
+                              label: 'Deposit to',
+                              leadingIcon: Icons.savings_rounded,
+                              items: _depositTargetChoices(),
+                              onChanged: (value) => setLocalState(
+                                  () => depositTargetValue = value!),
+                            ),
                           if (type == 'expense') ...[
                             if (isAdmin) ...[
                               _FriendlyDropdown(
@@ -1557,8 +2011,10 @@ class _GroupScreenState extends State<GroupScreen> {
                                         TextStyle(fontWeight: FontWeight.w700)),
                               ),
                               Text('${selected.length}/${group.members.length}',
-                                  style:
-                                      const TextStyle(color: Colors.white54)),
+                                  style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant)),
                               const SizedBox(width: 4),
                               TextButton(
                                 onPressed: () => setLocalState(() {
@@ -1581,10 +2037,16 @@ class _GroupScreenState extends State<GroupScreen> {
                                   .min(216, group.members.length * 54)
                                   .toDouble(),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF12141E),
+                                color: Theme.of(context).brightness ==
+                                        Brightness.light
+                                    ? const Color(0xFFF8F7FC)
+                                    : const Color(0xFF12141E),
                                 borderRadius: BorderRadius.circular(16),
-                                border:
-                                    Border.all(color: const Color(0xFF343247)),
+                                border: Border.all(
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.light
+                                        ? const Color(0xFFD8D4E3)
+                                        : const Color(0xFF343247)),
                               ),
                               child: Scrollbar(
                                 controller: membersScrollController,
@@ -1602,12 +2064,8 @@ class _GroupScreenState extends State<GroupScreen> {
                                       dense: true,
                                       contentPadding: const EdgeInsets.only(
                                           left: 12, right: 8),
-                                      secondary: CircleAvatar(
-                                        radius: 15,
-                                        child: Text(member.name.isEmpty
-                                            ? '?'
-                                            : member.name[0]),
-                                      ),
+                                      secondary: _MemberAvatar(
+                                          member: member, radius: 15),
                                       title: Text(member.name,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis),
@@ -1660,11 +2118,15 @@ class _GroupScreenState extends State<GroupScreen> {
     final value = double.tryParse(amount.text.trim());
     if (save != true || value == null || value <= 0) return;
     if (type == 'contribution') {
-      await database.addContribution(
-          groupId: group.id,
-          memberId: paidBy,
-          amount: value,
-          occurredAt: occurredAt.millisecondsSinceEpoch);
+      final memberTarget = depositTargetValue.startsWith('member:');
+      await database.addDeposit(
+        groupId: group.id,
+        depositTarget: memberTarget ? 'member' : 'wallet',
+        depositTo:
+            memberTarget ? depositTargetValue.substring('member:'.length) : '',
+        amount: value,
+        occurredAt: occurredAt.millisecondsSinceEpoch,
+      );
     } else if (title.text.trim().isNotEmpty && selected.isNotEmpty) {
       final walletBalance = await database.getWalletBalance(group.id);
       await database.addExpense(
@@ -1714,8 +2176,10 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(24),
-                gradient: const LinearGradient(
-                    colors: [Color(0xFF302A62), Color(0xFF172E3A)]),
+                gradient: LinearGradient(
+                    colors: Theme.of(context).brightness == Brightness.light
+                        ? const [Color(0xFFE9E5FF), Color(0xFFDDF3F1)]
+                        : const [Color(0xFF302A62), Color(0xFF172E3A)]),
               ),
               child: Row(children: [
                 Text(group.emoji, style: const TextStyle(fontSize: 38)),
@@ -1725,13 +2189,22 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(group.name,
-                            style: const TextStyle(
-                                fontSize: 21, fontWeight: FontWeight.w900)),
+                            style: TextStyle(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.light
+                                    ? const Color(0xFF22263A)
+                                    : Colors.white,
+                                fontSize: 21,
+                                fontWeight: FontWeight.w900)),
                         Text(
                             isAdmin
                                 ? 'Admin controls enabled'
                                 : 'View-only group information',
-                            style: const TextStyle(color: Colors.white60)),
+                            style: TextStyle(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.light
+                                    ? const Color(0xFF667080)
+                                    : Colors.white60)),
                       ]),
                 ),
                 Icon(isAdmin ? Icons.admin_panel_settings : Icons.lock_outline,
@@ -1755,6 +2228,9 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
             ]),
             const SizedBox(height: 8),
             Card(
+              color: Theme.of(context).brightness == Brightness.light
+                  ? const Color(0xFFF3F0FF)
+                  : null,
               child: ListTile(
                 leading: const Icon(Icons.drive_file_rename_outline_rounded,
                     color: Color(0xFF9B8EFF)),
@@ -1768,6 +2244,9 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
             ),
             const SizedBox(height: 12),
             Card(
+              color: Theme.of(context).brightness == Brightness.light
+                  ? const Color(0xFFEEF8F6)
+                  : null,
               child: ListTile(
                 leading: Text(currencyForCode(group.currencyCode).flag,
                     style: const TextStyle(fontSize: 26)),
@@ -1793,7 +2272,8 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                       ?.copyWith(fontWeight: FontWeight.w900)),
               const Spacer(),
               Text('${group.members.length}',
-                  style: const TextStyle(color: Colors.white54)),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
               if (isAdmin) ...[
                 const SizedBox(width: 8),
                 IconButton.filledTonal(
@@ -1805,14 +2285,15 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
             ]),
             const SizedBox(height: 10),
             Card(
+              color: Theme.of(context).brightness == Brightness.light
+                  ? const Color(0xFFF6F3FF)
+                  : null,
               child: Column(
                 children: group.members.values.map((member) {
                   final isOwner = member.uid == group.ownerId;
                   return Column(children: [
                     ListTile(
-                      leading: CircleAvatar(
-                          child:
-                              Text(member.name.isEmpty ? '?' : member.name[0])),
+                      leading: _MemberAvatar(member: member),
                       title: Text(member.name,
                           maxLines: 1, overflow: TextOverflow.ellipsis),
                       subtitle: Text(isOwner
@@ -1833,7 +2314,9 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                                   : Icons.visibility_outlined,
                               color: isOwner
                                   ? const Color(0xFF65DDBA)
-                                  : Colors.white38,
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
                             ),
                     ),
                     if (member.uid != group.members.keys.last)
@@ -1844,9 +2327,9 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
             ),
             if (group.formerMembers.isNotEmpty) ...[
               const SizedBox(height: 18),
-              const Text('Former members',
+              Text('Former members',
                   style: TextStyle(
-                      color: Colors.white70,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 15,
                       fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
@@ -1854,12 +2337,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                 child: Column(
                   children: group.formerMembers.values
                       .map((member) => ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: const Color(0xFFFFB45E)
-                                  .withValues(alpha: .12),
-                              child: Text(
-                                  member.name.isEmpty ? '?' : member.name[0]),
-                            ),
+                            leading: _MemberAvatar(member: member),
                             title: Text(member.name),
                             subtitle: const Text(
                                 'Removed • Historical transactions retained'),
@@ -1907,20 +2385,25 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
   Widget _expenseCategoriesCard() {
     final categories = _expenseCategoriesFor(group);
     return Card(
+      color: Theme.of(context).brightness == Brightness.light
+          ? const Color(0xFFFFF7E9)
+          : null,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 15, 12, 16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             const Icon(Icons.category_rounded, color: Color(0xFFFFB45E)),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Expense categories',
+                  const Text('Expense categories',
                       style: TextStyle(fontWeight: FontWeight.w800)),
                   Text('Available only inside this group',
-                      style: TextStyle(color: Colors.white54, fontSize: 12)),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 12)),
                 ],
               ),
             ),
@@ -1931,7 +2414,8 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                 icon: const Icon(Icons.add_rounded),
               )
             else
-              const Icon(Icons.visibility_outlined, color: Colors.white38),
+              Icon(Icons.visibility_outlined,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
           ]),
           const SizedBox(height: 13),
           Wrap(
@@ -1939,6 +2423,13 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
             runSpacing: 7,
             children: categories
                 .map((category) => Chip(
+                      backgroundColor:
+                          Theme.of(context).brightness == Brightness.light
+                              ? const Color(0xFFFFFCF5)
+                              : null,
+                      side: Theme.of(context).brightness == Brightness.light
+                          ? const BorderSide(color: Color(0xFFE8DCC5))
+                          : null,
                       avatar: group.customExpenseCategories.any((item) =>
                               item.toLowerCase() == category.toLowerCase())
                           ? const Icon(Icons.star_rounded,
@@ -1957,16 +2448,23 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
   Widget _accessCodeCard() => Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: const Color(0xFF181827),
+          color: Theme.of(context).brightness == Brightness.light
+              ? const Color(0xFFEDE9FF)
+              : const Color(0xFF181827),
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFF3D3862)),
+          border: Border.all(
+              color: Theme.of(context).brightness == Brightness.light
+                  ? const Color(0xFFCFC7F1)
+                  : const Color(0xFF3D3862)),
         ),
         child: Row(children: [
           Container(
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-                color: const Color(0xFF2C2948),
+                color: Theme.of(context).brightness == Brightness.light
+                    ? const Color(0xFFDCD5FF)
+                    : const Color(0xFF2C2948),
                 borderRadius: BorderRadius.circular(15)),
             child: const Icon(Icons.key_rounded, color: Color(0xFF9B8EFF)),
           ),
@@ -1974,15 +2472,22 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
           Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('GROUP ACCESS CODE',
+              Text('GROUP ACCESS CODE',
                   style: TextStyle(
-                      color: Colors.white54, fontSize: 11, letterSpacing: 1.2)),
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? const Color(0xFF6C6680)
+                          : Colors.white54,
+                      fontSize: 11,
+                      letterSpacing: 1.2)),
               const SizedBox(height: 4),
               Text(
                   group.accessCode.isEmpty
                       ? 'Not created yet'
                       : group.accessCode,
-                  style: const TextStyle(
+                  style: TextStyle(
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? const Color(0xFF28233F)
+                          : Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 2)),
@@ -2076,9 +2581,12 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                                 .textTheme
                                 .headlineSmall
                                 ?.copyWith(fontWeight: FontWeight.w900)),
-                        const Text('Used everywhere in this group',
-                            style:
-                                TextStyle(color: Colors.white54, fontSize: 12)),
+                        Text('Used everywhere in this group',
+                            style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                                fontSize: 12)),
                       ],
                     ),
                   ),
@@ -2156,14 +2664,13 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
   }
 
   Future<void> _addExpenseCategory() async {
-    final controller = TextEditingController();
+    var draft = '';
     final category = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         scrollable: true,
         title: const Text('Add expense category'),
         content: TextField(
-          controller: controller,
           autofocus: true,
           maxLength: 30,
           textCapitalization: TextCapitalization.words,
@@ -2172,6 +2679,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
             hintText: 'Example: Medical',
             prefixIcon: Icon(Icons.category_rounded),
           ),
+          onChanged: (value) => draft = value,
           onSubmitted: (value) {
             final trimmed = value.trim();
             if (trimmed.isNotEmpty) Navigator.pop(dialogContext, trimmed);
@@ -2184,7 +2692,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
           ),
           FilledButton.icon(
             onPressed: () {
-              final value = controller.text.trim();
+              final value = draft.trim();
               if (value.isNotEmpty) Navigator.pop(dialogContext, value);
             },
             icon: const Icon(Icons.add_rounded),
@@ -2193,7 +2701,6 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
         ],
       ),
     );
-    controller.dispose();
     if (category == null || !mounted) return;
     final exists = _expenseCategoriesFor(group)
         .any((item) => item.toLowerCase() == category.toLowerCase());
@@ -2204,7 +2711,16 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
       ));
       return;
     }
-    await widget.database.addExpenseCategory(group.id, category);
+    try {
+      await widget.database.addExpenseCategory(group.id, category);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        duration: Duration(milliseconds: 2500),
+        content: Text('Could not add the category. Please try again.'),
+      ));
+      return;
+    }
     if (!mounted) return;
     setState(() => group = group.copyWith(
           customExpenseCategories: [
@@ -2319,6 +2835,315 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
   }
 }
 
+class _MemberAvatar extends StatelessWidget {
+  const _MemberAvatar({required this.member, this.radius = 20});
+
+  final GroupMember? member;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final photoUri = Uri.tryParse(member?.photoUrl.trim() ?? '');
+    final hasPhoto = photoUri != null &&
+        (photoUri.scheme == 'https' || photoUri.scheme == 'http');
+    final image = hasPhoto ? NetworkImage(photoUri.toString()) : null;
+    final name = member?.name ?? '';
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: const Color(0xFF514987),
+      foregroundColor: Colors.white,
+      foregroundImage: image,
+      onForegroundImageError: image == null ? null : (_, __) {},
+      child: Text(name.isEmpty ? '?' : name[0]),
+    );
+  }
+}
+
+class _AdminPeopleDirectoryCard extends StatelessWidget {
+  const _AdminPeopleDirectoryCard({
+    required this.members,
+    required this.onTap,
+  });
+
+  final List<GroupMember> members;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = members.take(5).toList();
+    final stackWidth = 34.0 + math.max(0, visible.length - 1) * 22;
+    return Card(
+      color: Theme.of(context).brightness == Brightness.light
+          ? const Color(0xFFF0F7FF)
+          : null,
+      margin: EdgeInsets.zero,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(children: [
+            SizedBox(
+              width: stackWidth,
+              height: 36,
+              child: Stack(
+                children: [
+                  for (var index = 0; index < visible.length; index++)
+                    Positioned(
+                      left: index * 22,
+                      child: _MemberAvatar(member: visible[index], radius: 18),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('People & balances',
+                        style: TextStyle(fontWeight: FontWeight.w900)),
+                    Text(
+                        '${members.length} members • View balances and history',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 10)),
+                  ]),
+            ),
+            Icon(Icons.arrow_forward_ios_rounded,
+                size: 15,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _MemberPositionCard extends StatelessWidget {
+  const _MemberPositionCard({
+    required this.member,
+    required this.memberCount,
+    required this.currencyCode,
+    required this.toPay,
+    required this.toReceive,
+    required this.onOpenDashboard,
+    required this.onOpenSettlements,
+  });
+
+  final GroupMember? member;
+  final int memberCount;
+  final String currencyCode;
+  final double toPay;
+  final double toReceive;
+  final VoidCallback onOpenDashboard;
+  final VoidCallback onOpenSettlements;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = member?.name ?? 'You';
+    final isClear = toPay <= 0 && toReceive <= 0;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Text('Your position',
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.w900)),
+        const Spacer(),
+        Text('$memberCount people in this group',
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 11)),
+      ]),
+      const SizedBox(height: 10),
+      Card(
+        color: Theme.of(context).brightness == Brightness.light
+            ? const Color(0xFFF7F3FF)
+            : null,
+        margin: EdgeInsets.zero,
+        child: InkWell(
+          onTap: onOpenDashboard,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 13, 10, 10),
+            child: Column(children: [
+              Row(children: [
+                _MemberAvatar(member: member, radius: 19),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w900)),
+                        Text('View your private dashboard',
+                            style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                                fontSize: 10)),
+                      ]),
+                ),
+                Icon(Icons.arrow_forward_ios_rounded,
+                    size: 15,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ]),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 10),
+                child: Divider(height: 1),
+              ),
+              Row(children: [
+                Expanded(
+                  child: _PositionMetric(
+                    label: 'You need to pay',
+                    value: formatMoney(toPay, currencyCode),
+                    color: const Color(0xFFFFB45E),
+                  ),
+                ),
+                Container(
+                    width: 1,
+                    height: 38,
+                    color: Theme.of(context).dividerColor),
+                Expanded(
+                  child: _PositionMetric(
+                    label: 'You will receive',
+                    value: formatMoney(toReceive, currencyCode),
+                    color: const Color(0xFF65DDBA),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 5),
+              Row(children: [
+                Icon(isClear ? Icons.check_circle_rounded : Icons.info_rounded,
+                    size: 15,
+                    color: isClear
+                        ? const Color(0xFF65DDBA)
+                        : const Color(0xFFFFB45E)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                      isClear ? 'All settled up' : 'Action may be needed',
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 11)),
+                ),
+                TextButton(
+                  onPressed: onOpenSettlements,
+                  child: const Text('Review'),
+                ),
+              ]),
+            ]),
+          ),
+        ),
+      ),
+    ]);
+  }
+}
+
+class _PositionMetric extends StatelessWidget {
+  const _PositionMetric({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 9),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 10)),
+          const SizedBox(height: 2),
+          Text(value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  color: _surfaceAccent(context, color),
+                  fontWeight: FontWeight.w900)),
+        ]),
+      );
+}
+
+class _DashboardNavigation extends StatelessWidget {
+  const _DashboardNavigation({
+    required this.selectedIndex,
+    required this.onChanged,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: isLight ? const Color(0xFFFAF8FF) : const Color(0xFF141620),
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(
+            color: isLight ? const Color(0xFFD9D5E8) : const Color(0xFF292C3B)),
+      ),
+      child: Row(
+        children: [
+          _item(context, 0, Icons.space_dashboard_rounded, 'Overview'),
+          _item(context, 1, Icons.handshake_rounded, 'Settle'),
+          _item(context, 2, Icons.receipt_long_rounded, 'Activity'),
+        ],
+      ),
+    );
+  }
+
+  Widget _item(BuildContext context, int index, IconData icon, String label) {
+    final selected = selectedIndex == index;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final inactive = isLight
+        ? Theme.of(context).colorScheme.onSurfaceVariant
+        : Colors.white54;
+    return Expanded(
+      child: Material(
+        color: selected ? const Color(0xFF514987) : Colors.transparent,
+        borderRadius: BorderRadius.circular(13),
+        child: InkWell(
+          onTap: () => onChanged(index),
+          borderRadius: BorderRadius.circular(13),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 11),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(icon, size: 17, color: selected ? Colors.white : inactive),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: selected ? Colors.white : inactive,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800)),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _WalletCard extends StatelessWidget {
   const _WalletCard({
     required this.currencyCode,
@@ -2340,65 +3165,108 @@ class _WalletCard extends StatelessWidget {
   final double monthChange;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(28),
-            gradient: const LinearGradient(
-                colors: [Color(0xFF23354A), Color(0xFF132B31)])),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('GROUP WALLET',
-              style: TextStyle(
-                  letterSpacing: 1.5, fontSize: 11, color: Colors.white60)),
-          const SizedBox(height: 8),
-          Text(formatMoney(balance, currencyCode),
-              style: const TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -1)),
-          const SizedBox(height: 22),
-          Row(children: [
-            Expanded(
-                child: _MiniStat(
-                    currencyCode: currencyCode,
-                    icon: Icons.south_west_rounded,
-                    label: 'Added',
-                    value: contributed,
-                    color: const Color(0xFF65DDBA))),
-            Expanded(
-                child: _MiniStat(
-                    currencyCode: currencyCode,
-                    icon: Icons.north_east_rounded,
-                    label: 'Spent',
-                    value: spent,
-                    color: const Color(0xFFFF837A)))
-          ]),
-          const SizedBox(height: 16),
-          Row(children: [
-            Expanded(
-              child: _WalletInsight(
-                icon: Icons.account_balance_rounded,
-                label: 'Your credit',
-                value: formatMoney(currentNetCredit, currencyCode),
-                caption: 'Net balance',
-                color: const Color(0xFF65DDBA),
-              ),
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: _WalletInsight(
-                icon: Icons.auto_graph_rounded,
-                label: 'This month',
-                value: formatMoney(currentMonthSpend, currencyCode),
-                caption: topCategory == null
-                    ? 'No spend yet'
-                    : '$topCategory • ${monthChange <= 0 ? '↓' : '↑'}${monthChange.abs().toStringAsFixed(0)}%',
-                color: const Color(0xFFFFB45E),
-              ),
-            ),
-          ]),
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final ink = isLight ? const Color(0xFF183646) : Colors.white;
+    final muted = isLight ? const Color(0xFF607783) : Colors.white54;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+              color:
+                  isLight ? const Color(0xFFB7D3DF) : const Color(0xFF315164)),
+          boxShadow: [
+            BoxShadow(
+                color:
+                    isLight ? const Color(0x1F448B91) : const Color(0x241CA8A0),
+                blurRadius: 24,
+                spreadRadius: -12)
+          ],
+          gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isLight
+                  ? const [Color(0xFFE2EEFF), Color(0xFFDDF5EC)]
+                  : const [Color(0xFF20374C), Color(0xFF102A30)])),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+                color: const Color(0x2465DDBA),
+                borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.account_balance_wallet_rounded,
+                color: Color(0xFF65DDBA), size: 20),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('AVAILABLE IN WALLET',
+                  style: TextStyle(
+                      letterSpacing: 1.2, fontSize: 10, color: muted)),
+              Text(formatMoney(balance, currencyCode),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: ink,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -1)),
+            ]),
+          ),
         ]),
-      );
+        const SizedBox(height: 15),
+        Row(children: [
+          Expanded(
+              child: _MiniStat(
+                  currencyCode: currencyCode,
+                  icon: Icons.south_west_rounded,
+                  label: 'Added',
+                  value: contributed,
+                  color: const Color(0xFF65DDBA))),
+          Expanded(
+              child: _MiniStat(
+                  currencyCode: currencyCode,
+                  icon: Icons.north_east_rounded,
+                  label: 'Spent',
+                  value: spent,
+                  color: const Color(0xFFFF837A)))
+        ]),
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Divider(
+              height: 1,
+              color: isLight ? const Color(0xFFBDD5DA) : Colors.white12),
+        ),
+        Row(children: [
+          Expanded(
+            child: _WalletInsight(
+              icon: Icons.account_balance_rounded,
+              label: 'Your credit',
+              value: formatMoney(currentNetCredit, currencyCode),
+              caption: 'Net balance',
+              color: const Color(0xFF65DDBA),
+            ),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: _WalletInsight(
+              icon: Icons.auto_graph_rounded,
+              label: 'This month',
+              value: formatMoney(currentMonthSpend, currencyCode),
+              caption: topCategory == null
+                  ? 'No spend yet'
+                  : '$topCategory • ${monthChange <= 0 ? '↓' : '↑'}${monthChange.abs().toStringAsFixed(0)}%',
+              color: const Color(0xFFFFB45E),
+            ),
+          ),
+        ]),
+      ]),
+    );
+  }
 }
 
 class _WalletInsight extends StatelessWidget {
@@ -2417,36 +3285,48 @@ class _WalletInsight extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .06),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white10),
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+      decoration: BoxDecoration(
+        color: isLight
+            ? Colors.white.withValues(alpha: .74)
+            : Colors.white.withValues(alpha: .06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+            color: isLight ? const Color(0xFFBFD8DF) : Colors.white10),
+      ),
+      child: Row(children: [
+        Icon(icon, color: color, size: 18),
+        const SizedBox(width: 8),
+        Expanded(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: isLight ? const Color(0xFF607783) : Colors.white60,
+                    fontSize: 11)),
+            Text(value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: isLight ? _surfaceAccent(context, color) : color,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900)),
+            Text(caption,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: isLight ? const Color(0xFF718590) : Colors.white38,
+                    fontSize: 10)),
+          ]),
         ),
-        child: Row(children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white60, fontSize: 11)),
-              Text(value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      color: color, fontSize: 15, fontWeight: FontWeight.w900)),
-              Text(caption,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white38, fontSize: 10)),
-            ]),
-          ),
-        ]),
-      );
+      ]),
+    );
+  }
 }
 
 class _MiniStat extends StatelessWidget {
@@ -2462,16 +3342,633 @@ class _MiniStat extends StatelessWidget {
   final double value;
   final Color color;
   @override
-  Widget build(BuildContext context) => Row(children: [
-        Icon(icon, color: color, size: 20),
-        const SizedBox(width: 8),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label,
-              style: const TextStyle(color: Colors.white54, fontSize: 12)),
-          Text(formatMoney(value, currencyCode),
-              style: const TextStyle(fontWeight: FontWeight.w800))
-        ])
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return Row(children: [
+      Icon(icon, color: color, size: 20),
+      const SizedBox(width: 8),
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label,
+            style: TextStyle(
+                color: isLight ? const Color(0xFF607783) : Colors.white54,
+                fontSize: 12)),
+        Text(formatMoney(value, currencyCode),
+            style: TextStyle(
+                color: isLight ? const Color(0xFF183646) : Colors.white,
+                fontWeight: FontWeight.w800))
+      ])
+    ]);
+  }
+}
+
+class _SettlementOverview extends StatelessWidget {
+  const _SettlementOverview({
+    required this.entries,
+    required this.currentUid,
+    required this.isAdmin,
+    required this.members,
+    required this.currencyCode,
+    required this.onRequestSettlement,
+    required this.onConfirmSettlement,
+    required this.onRemindSettlement,
+  });
+
+  final List<LedgerEntry> entries;
+  final String currentUid;
+  final bool isAdmin;
+  final Map<String, GroupMember> members;
+  final String currencyCode;
+  final _ExpenseSettlementAction onRequestSettlement;
+  final _ExpenseSettlementAction onConfirmSettlement;
+  final _ExpenseSettlementAction onRemindSettlement;
+
+  @override
+  Widget build(BuildContext context) {
+    final openObligations = <_ExpenseObligation>[];
+    for (final entry in entries.where((entry) =>
+        entry.type == 'expense' &&
+        entry.paymentSource == 'personal' &&
+        entry.personalPaid > 0)) {
+      for (final share in entry.splitAmong.entries) {
+        if (share.key == entry.paidBy ||
+            share.value <= 0 ||
+            entry.settlements[share.key]?.isConfirmed == true) {
+          continue;
+        }
+        openObligations
+            .add((entry: entry, debtorUid: share.key, amount: share.value));
+      }
+    }
+    final outgoing = openObligations
+        .where((item) =>
+            item.debtorUid == currentUid && item.entry.paidBy != currentUid)
+        .toList();
+    final incoming = openObligations
+        .where((item) =>
+            item.entry.paidBy == currentUid && item.debtorUid != currentUid)
+        .toList();
+    final groupOversight = isAdmin
+        ? openObligations
+            .where((item) =>
+                item.entry.paidBy != currentUid && item.debtorUid != currentUid)
+            .toList()
+        : <_ExpenseObligation>[];
+    if (outgoing.isEmpty && incoming.isEmpty && groupOversight.isEmpty) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Settlement hub',
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.w900)),
+        const SizedBox(height: 10),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: const Color(0x2265DDBA),
+                    borderRadius: BorderRadius.circular(17),
+                  ),
+                  child: const Icon(Icons.handshake_outlined,
+                      color: Color(0xFF65DDBA)),
+                ),
+                const SizedBox(height: 12),
+                const Text('Everything is clear',
+                    style: TextStyle(fontWeight: FontWeight.w900)),
+                const SizedBox(height: 4),
+                Text('No personal expense settlements to manage.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 12)),
+              ]),
+            ),
+          ),
+        ),
       ]);
+    }
+
+    final outgoingByPayer = <String, List<_ExpenseObligation>>{};
+    for (final item in outgoing) {
+      outgoingByPayer.putIfAbsent(item.entry.paidBy, () => []).add(item);
+    }
+    final incomingByDebtor = <String, List<_ExpenseObligation>>{};
+    for (final item in incoming) {
+      incomingByDebtor.putIfAbsent(item.debtorUid, () => []).add(item);
+    }
+    final oversightByPair = <String, List<_ExpenseObligation>>{};
+    for (final item in groupOversight) {
+      oversightByPair
+          .putIfAbsent('${item.entry.paidBy}|${item.debtorUid}', () => [])
+          .add(item);
+    }
+
+    final searchableObligations = isAdmin
+        ? openObligations
+        : <_ExpenseObligation>[...outgoing, ...incoming];
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(
+          child: Text('Settlement hub',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w900)),
+        ),
+        IconButton.filledTonal(
+          onPressed: () =>
+              _openSettlementFinder(context, searchableObligations),
+          icon: const Icon(Icons.manage_search_rounded),
+          tooltip: 'Find settlement',
+        ),
+      ]),
+      const SizedBox(height: 3),
+      Text('Open a section only when you need to take action.',
+          style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 11)),
+      const SizedBox(height: 9),
+      SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () =>
+              _openSettlementFinder(context, searchableObligations),
+          icon: const Icon(Icons.search_rounded),
+          label: const Text('Find member or expense'),
+        ),
+      ),
+      const SizedBox(height: 10),
+      _settlementSection(
+        context: context,
+        title: 'You need to pay',
+        emptyMessage: 'You do not owe anyone',
+        icon: Icons.north_east_rounded,
+        color: const Color(0xFFFFB45E),
+        obligations: outgoing,
+        rows: outgoingByPayer.entries.map((row) {
+          return _settlementMemberRow(
+            context: context,
+            name: members[row.key]?.name ?? 'Former member',
+            obligations: row.value,
+            payerUid: row.key,
+            debtorUid: currentUid,
+            statusLabel: 'Pay to',
+          );
+        }).toList(),
+      ),
+      const SizedBox(height: 9),
+      _settlementSection(
+        context: context,
+        title: 'Others owe you',
+        emptyMessage: 'No one owes you right now',
+        icon: Icons.south_west_rounded,
+        color: const Color(0xFF65DDBA),
+        obligations: incoming,
+        rows: incomingByDebtor.entries.map((row) {
+          return _settlementMemberRow(
+            context: context,
+            name: members[row.key]?.name ?? 'Former member',
+            obligations: row.value,
+            payerUid: currentUid,
+            debtorUid: row.key,
+            statusLabel: 'Receive from',
+          );
+        }).toList(),
+      ),
+      if (isAdmin) ...[
+        const SizedBox(height: 9),
+        _settlementSection(
+          context: context,
+          title: 'Group oversight',
+          emptyMessage: 'No other member payments need attention',
+          icon: Icons.admin_panel_settings_outlined,
+          color: const Color(0xFF9B8EFF),
+          obligations: groupOversight,
+          rows: oversightByPair.values.map((obligations) {
+            final payerUid = obligations.first.entry.paidBy;
+            final debtorUid = obligations.first.debtorUid;
+            return _settlementMemberRow(
+              context: context,
+              name:
+                  '${members[debtorUid]?.name ?? 'Member'} → ${members[payerUid]?.name ?? 'Member'}',
+              obligations: obligations,
+              payerUid: payerUid,
+              debtorUid: debtorUid,
+              statusLabel: 'Manage',
+            );
+          }).toList(),
+        ),
+      ],
+    ]);
+  }
+
+  Widget _settlementSection({
+    required BuildContext context,
+    required String title,
+    required String emptyMessage,
+    required IconData icon,
+    required Color color,
+    required List<_ExpenseObligation> obligations,
+    required List<Widget> rows,
+  }) {
+    final total = obligations.fold<double>(0, (sum, item) => sum + item.amount);
+    final pending = obligations
+        .where(
+            (item) => item.entry.settlements[item.debtorUid]?.isPending == true)
+        .length;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: .14),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          title:
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+          subtitle: Text(
+            obligations.isEmpty
+                ? emptyMessage
+                : '${formatMoney(total, currencyCode)} • ${obligations.length} open${pending > 0 ? ' • $pending pending' : ''}',
+            style: TextStyle(
+                color: obligations.isEmpty ? Colors.white38 : color,
+                fontSize: 11,
+                fontWeight:
+                    obligations.isEmpty ? FontWeight.normal : FontWeight.w700),
+          ),
+          enabled: obligations.isNotEmpty,
+          children: rows,
+        ),
+      ),
+    );
+  }
+
+  Widget _settlementMemberRow({
+    required BuildContext context,
+    required String name,
+    required List<_ExpenseObligation> obligations,
+    required String payerUid,
+    required String debtorUid,
+    required String statusLabel,
+  }) {
+    final total = obligations.fold<double>(0, (sum, item) => sum + item.amount);
+    final pending = obligations
+        .where(
+            (item) => item.entry.settlements[item.debtorUid]?.isPending == true)
+        .length;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      leading: CircleAvatar(
+        radius: 16,
+        child: Text(name.isEmpty ? '?' : name[0]),
+      ),
+      title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+          '$statusLabel • ${obligations.length} expense${obligations.length == 1 ? '' : 's'}${pending > 0 ? ' • $pending pending' : ''}'),
+      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(formatMoney(total, currencyCode),
+            style: const TextStyle(fontWeight: FontWeight.w900)),
+        const SizedBox(width: 3),
+        const Icon(Icons.chevron_right_rounded),
+      ]),
+      onTap: () =>
+          _openMemberDetails(context, payerUid, debtorUid, obligations),
+    );
+  }
+
+  Future<void> _openSettlementFinder(
+      BuildContext context, List<_ExpenseObligation> obligations) async {
+    var queryText = '';
+    var filter = 'all';
+    final selected = await showModalBottomSheet<_ExpenseObligation>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => FractionallySizedBox(
+        heightFactor: .88,
+        child: StatefulBuilder(
+          builder: (sheetContext, setLocalState) {
+            final query = queryText.trim().toLowerCase();
+            final filtered = obligations.where((item) {
+              final payerName = members[item.entry.paidBy]?.name ?? '';
+              final debtorName = members[item.debtorUid]?.name ?? '';
+              final matchesType = switch (filter) {
+                'pay' => item.debtorUid == currentUid,
+                'receive' => item.entry.paidBy == currentUid,
+                'group' => item.debtorUid != currentUid &&
+                    item.entry.paidBy != currentUid,
+                _ => true,
+              };
+              if (!matchesType) return false;
+              if (query.isEmpty) return true;
+              return payerName.toLowerCase().contains(query) ||
+                  debtorName.toLowerCase().contains(query) ||
+                  item.entry.title.toLowerCase().contains(query) ||
+                  item.entry.category.toLowerCase().contains(query);
+            }).toList()
+              ..sort((a, b) => b.entry.createdAt.compareTo(a.entry.createdAt));
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Find settlement',
+                        style: TextStyle(
+                            fontSize: 21, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 4),
+                    Text('Search by member, expense or category.',
+                        style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 11)),
+                    const SizedBox(height: 13),
+                    TextField(
+                      autofocus: true,
+                      onChanged: (value) {
+                        queryText = value;
+                        setLocalState(() {});
+                      },
+                      decoration: const InputDecoration(
+                        hintText: 'Search settlements',
+                        prefixIcon: Icon(Icons.search_rounded),
+                        suffixIcon: Icon(Icons.tune_rounded),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(children: [
+                        _settlementFilterChip(
+                            label: 'All',
+                            value: 'all',
+                            selected: filter,
+                            onSelected: (value) =>
+                                setLocalState(() => filter = value)),
+                        _settlementFilterChip(
+                            label: 'You pay',
+                            value: 'pay',
+                            selected: filter,
+                            onSelected: (value) =>
+                                setLocalState(() => filter = value)),
+                        _settlementFilterChip(
+                            label: 'You receive',
+                            value: 'receive',
+                            selected: filter,
+                            onSelected: (value) =>
+                                setLocalState(() => filter = value)),
+                        if (isAdmin)
+                          _settlementFilterChip(
+                              label: 'Group',
+                              value: 'group',
+                              selected: filter,
+                              onSelected: (value) =>
+                                  setLocalState(() => filter = value)),
+                      ]),
+                    ),
+                    const SizedBox(height: 10),
+                    Text('${filtered.length} matching open settlements',
+                        style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 10)),
+                    const SizedBox(height: 7),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? Center(
+                              child: Text('No matching settlements',
+                                  style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant)))
+                          : ListView.separated(
+                              itemCount: filtered.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 7),
+                              itemBuilder: (context, index) {
+                                final item = filtered[index];
+                                final payer = members[item.entry.paidBy];
+                                final debtor = members[item.debtorUid];
+                                final pending = item
+                                        .entry
+                                        .settlements[item.debtorUid]
+                                        ?.isPending ==
+                                    true;
+                                return Card(
+                                  margin: EdgeInsets.zero,
+                                  child: ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 4),
+                                    leading: _MemberAvatar(member: debtor),
+                                    title: Text(
+                                      '${debtor?.name ?? 'Member'} → ${payer?.name ?? 'Member'}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w800),
+                                    ),
+                                    subtitle: Text(
+                                      '${item.entry.title} • ${item.entry.category} • ${pending ? 'Pending' : 'Unpaid'}',
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                              formatMoney(
+                                                  item.amount, currencyCode),
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.w900)),
+                                          const Icon(
+                                              Icons.chevron_right_rounded),
+                                        ]),
+                                    onTap: () {
+                                      FocusScope.of(sheetContext).unfocus();
+                                      Navigator.pop(sheetContext, item);
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ]),
+            );
+          },
+        ),
+      ),
+    );
+    if (selected == null) return;
+    await Future<void>.delayed(const Duration(milliseconds: 320));
+    if (!context.mounted) return;
+    await _openMemberDetails(
+        context, selected.entry.paidBy, selected.debtorUid, [selected]);
+  }
+
+  Widget _settlementFilterChip({
+    required String label,
+    required String value,
+    required String selected,
+    required ValueChanged<String> onSelected,
+  }) =>
+      Padding(
+        padding: const EdgeInsets.only(right: 7),
+        child: ChoiceChip(
+          label: Text(label),
+          selected: selected == value,
+          onSelected: (_) => onSelected(value),
+        ),
+      );
+
+  Future<void> _openMemberDetails(BuildContext context, String payerUid,
+      String debtorUid, List<_ExpenseObligation> obligations) {
+    final payer = members[payerUid];
+    final debtor = members[debtorUid];
+    final canManage = isAdmin || currentUid == payerUid;
+    final isDebtor = currentUid == debtorUid;
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => FractionallySizedBox(
+        heightFactor: .82,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${debtor?.name ?? 'Member'} → ${payer?.name ?? 'Payer'}',
+                style: Theme.of(sheetContext)
+                    .textTheme
+                    .headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.w900)),
+            const SizedBox(height: 4),
+            const Text('Expense settlement details',
+                style: TextStyle(color: Colors.white54)),
+            const SizedBox(height: 14),
+            Expanded(
+              child: ListView.separated(
+                itemCount: obligations.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 9),
+                itemBuilder: (context, index) {
+                  final obligation = obligations[index];
+                  final settlement =
+                      obligation.entry.settlements[obligation.debtorUid];
+                  final settled = settlement?.isConfirmed == true;
+                  final pending = settlement?.isPending == true;
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(13),
+                      child: Column(children: [
+                        Row(children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(obligation.entry.title,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w800)),
+                                Text(
+                                  DateFormat('d MMM, h:mm a').format(
+                                      DateTime.fromMillisecondsSinceEpoch(
+                                          obligation.entry.createdAt)),
+                                  style: const TextStyle(
+                                      color: Colors.white38, fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                    formatMoney(
+                                        obligation.amount, currencyCode),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w900)),
+                                Text(
+                                  settled
+                                      ? 'Settled'
+                                      : pending
+                                          ? 'Pending'
+                                          : 'Unpaid',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: settled
+                                        ? const Color(0xFF65DDBA)
+                                        : pending
+                                            ? const Color(0xFFFFB45E)
+                                            : Colors.white54,
+                                  ),
+                                ),
+                              ]),
+                        ]),
+                        if (!settled && (isDebtor || canManage)) ...[
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Wrap(spacing: 7, runSpacing: 5, children: [
+                              if (isDebtor && !pending)
+                                TextButton.icon(
+                                  onPressed: () {
+                                    Navigator.pop(sheetContext);
+                                    onRequestSettlement(
+                                        obligation.entry, obligation.debtorUid);
+                                  },
+                                  icon: const Icon(Icons.handshake_outlined,
+                                      size: 17),
+                                  label: const Text('Settle'),
+                                ),
+                              if (canManage)
+                                TextButton.icon(
+                                  onPressed: () {
+                                    Navigator.pop(sheetContext);
+                                    onRemindSettlement(
+                                        obligation.entry, obligation.debtorUid);
+                                  },
+                                  icon: const Icon(
+                                      Icons.notifications_active_outlined,
+                                      size: 17),
+                                  label: const Text('Remind'),
+                                ),
+                              if (canManage && (pending || isAdmin))
+                                FilledButton.icon(
+                                  onPressed: () {
+                                    Navigator.pop(sheetContext);
+                                    onConfirmSettlement(
+                                        obligation.entry, obligation.debtorUid);
+                                  },
+                                  icon:
+                                      const Icon(Icons.check_rounded, size: 17),
+                                  label: Text(pending ? 'Confirm' : 'Settle'),
+                                ),
+                            ]),
+                          ),
+                        ],
+                      ]),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
 }
 
 class _TransactionHistory extends StatefulWidget {
@@ -2485,10 +3982,15 @@ class _TransactionHistory extends StatefulWidget {
     this.title,
     this.canDelete,
     this.previewLimit = 10,
+    this.compact = false,
+    this.showFilters = true,
+    this.showHeaderCount = false,
     this.initialFilter = 'all',
     this.database,
     this.groupId,
     this.members = const {},
+    this.onConfirmDeposit,
+    this.onRejectDeposit,
   });
 
   final List<LedgerEntry> entries;
@@ -2500,10 +4002,15 @@ class _TransactionHistory extends StatefulWidget {
   final String? title;
   final bool? canDelete;
   final int? previewLimit;
+  final bool compact;
+  final bool showFilters;
+  final bool showHeaderCount;
   final String initialFilter;
   final DatabaseService? database;
   final String? groupId;
   final Map<String, GroupMember> members;
+  final ValueChanged<LedgerEntry>? onConfirmDeposit;
+  final ValueChanged<LedgerEntry>? onRejectDeposit;
 
   @override
   State<_TransactionHistory> createState() => _TransactionHistoryState();
@@ -2518,7 +4025,8 @@ class _TransactionHistoryState extends State<_TransactionHistory> {
         ? widget.entries
         : widget.entries.where((entry) {
             if (entry.type == 'contribution') {
-              return entry.paidBy == widget.currentUid;
+              return entry.paidBy == widget.currentUid ||
+                  entry.depositTo == widget.currentUid;
             }
             return entry.createdBy == widget.currentUid ||
                 entry.paidBy == widget.currentUid ||
@@ -2541,23 +4049,28 @@ class _TransactionHistoryState extends State<_TransactionHistory> {
                 .textTheme
                 .titleLarge
                 ?.copyWith(fontWeight: FontWeight.w800)),
-        const Spacer(),
-        Text('${visible.length}',
-            style: const TextStyle(color: Colors.white54)),
+        if (widget.showHeaderCount) ...[
+          const Spacer(),
+          Text('${visible.length}',
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        ],
       ]),
-      const SizedBox(height: 12),
-      SizedBox(
-        width: double.infinity,
-        child: SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'all', label: Text('All')),
-            ButtonSegment(value: 'expense', label: Text('Expense')),
-            ButtonSegment(value: 'contribution', label: Text('Deposit')),
-          ],
-          selected: {filter},
-          onSelectionChanged: (value) => setState(() => filter = value.first),
+      if (widget.showFilters) ...[
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'all', label: Text('All')),
+              ButtonSegment(value: 'expense', label: Text('Expense')),
+              ButtonSegment(value: 'contribution', label: Text('Deposit')),
+            ],
+            selected: {filter},
+            onSelectionChanged: (value) => setState(() => filter = value.first),
+          ),
         ),
-      ),
+      ],
       const SizedBox(height: 10),
       if (visible.isEmpty)
         Card(
@@ -2568,23 +4081,41 @@ class _TransactionHistoryState extends State<_TransactionHistory> {
                 filter == 'all'
                     ? 'No activity yet'
                     : 'No ${filter == 'expense' ? 'expenses' : 'deposits'} yet',
-                style: const TextStyle(color: Colors.white54),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ),
           ),
         )
       else
-        ...preview.map((entry) => _TransactionTile(
-              entry: entry,
-              canDelete: widget.canDelete ?? widget.isAdmin,
-              onEdit:
-                  widget.onEdit == null ? null : () => widget.onEdit!(entry),
-              onDelete: () => widget.onDelete(entry),
-              database: widget.database,
-              groupId: widget.groupId,
-              members: widget.members,
-              currencyCode: widget.currencyCode,
-            )),
+        ...preview.map((entry) {
+          final canModify = widget.isAdmin ||
+              (entry.isPendingDeposit && entry.createdBy == widget.currentUid);
+          final canReview = entry.isPendingDeposit &&
+              (widget.isAdmin ||
+                  (entry.isMemberDeposit &&
+                      entry.depositTo == widget.currentUid));
+          return _TransactionTile(
+            entry: entry,
+            canEdit:
+                widget.onEdit != null && canModify && widget.canDelete != false,
+            canDelete: (widget.canDelete ?? canModify) && canModify,
+            canReview: canReview,
+            onEdit: widget.onEdit == null ? null : () => widget.onEdit!(entry),
+            onDelete: () => widget.onDelete(entry),
+            onConfirm: widget.onConfirmDeposit == null
+                ? null
+                : () => widget.onConfirmDeposit!(entry),
+            onReject: widget.onRejectDeposit == null
+                ? null
+                : () => widget.onRejectDeposit!(entry),
+            database: widget.database,
+            groupId: widget.groupId,
+            members: widget.members,
+            currencyCode: widget.currencyCode,
+            compact: widget.compact,
+          );
+        }),
       if (hasMore) ...[
         const SizedBox(height: 3),
         SizedBox(
@@ -2593,7 +4124,7 @@ class _TransactionHistoryState extends State<_TransactionHistory> {
           child: OutlinedButton.icon(
             onPressed: _openFullHistory,
             icon: const Icon(Icons.history_rounded),
-            label: Text('View all ${visible.length} transactions'),
+            label: const Text('View all transactions'),
           ),
         ),
       ],
@@ -2615,6 +4146,8 @@ class _TransactionHistoryState extends State<_TransactionHistory> {
             groupId: widget.groupId,
             members: widget.members,
             currencyCode: widget.currencyCode,
+            onConfirmDeposit: widget.onConfirmDeposit,
+            onRejectDeposit: widget.onRejectDeposit,
           ),
         ),
       );
@@ -2633,6 +4166,8 @@ class _FullTransactionHistoryScreen extends StatelessWidget {
     this.database,
     this.groupId,
     this.members = const {},
+    this.onConfirmDeposit,
+    this.onRejectDeposit,
   });
 
   final List<LedgerEntry> entries;
@@ -2646,6 +4181,8 @@ class _FullTransactionHistoryScreen extends StatelessWidget {
   final DatabaseService? database;
   final String? groupId;
   final Map<String, GroupMember> members;
+  final ValueChanged<LedgerEntry>? onConfirmDeposit;
+  final ValueChanged<LedgerEntry>? onRejectDeposit;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -2680,6 +4217,8 @@ class _FullTransactionHistoryScreen extends StatelessWidget {
             groupId: groupId,
             members: members,
             currencyCode: currencyCode,
+            onConfirmDeposit: onConfirmDeposit,
+            onRejectDeposit: onRejectDeposit,
           ),
         ],
       );
@@ -2688,30 +4227,50 @@ class _FullTransactionHistoryScreen extends StatelessWidget {
 class _TransactionTile extends StatelessWidget {
   const _TransactionTile({
     required this.entry,
+    required this.canEdit,
     required this.canDelete,
+    required this.canReview,
     required this.onDelete,
     required this.currencyCode,
     this.onEdit,
+    this.onConfirm,
+    this.onReject,
     this.database,
     this.groupId,
     this.members = const {},
+    this.compact = false,
   });
   static const _reactions = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
   final LedgerEntry entry;
+  final bool canEdit;
   final bool canDelete;
+  final bool canReview;
   final VoidCallback onDelete;
   final String currencyCode;
   final VoidCallback? onEdit;
+  final VoidCallback? onConfirm;
+  final VoidCallback? onReject;
   final DatabaseService? database;
   final String? groupId;
   final Map<String, GroupMember> members;
+  final bool compact;
   @override
   Widget build(BuildContext context) {
     final isIncome = entry.type == 'contribution';
     final contributor = members[entry.paidBy];
-    final contributionNote = contributor == null
-        ? 'Contribution • Former member'
-        : 'Contribution • ${contributor.name}${contributor.role == 'former' ? ' • Removed member' : ''}';
+    final creator = members[entry.createdBy];
+    final recipient = members[entry.depositTo];
+    final senderName = contributor?.name ?? 'Former member';
+    final depositRoute = entry.isMemberDeposit
+        ? '$senderName → ${recipient?.name ?? 'Former member'}'
+        : '$senderName → Group wallet';
+    final depositStatus = entry.isPendingDeposit
+        ? 'Pending confirmation'
+        : entry.isRejectedDeposit
+            ? 'Rejected'
+            : 'Confirmed';
+    final contributionNote =
+        '$depositRoute • $depositStatus${entry.isRejectedDeposit && entry.rejectionReason.isNotEmpty ? ' • ${entry.rejectionReason}' : ''}';
     final paymentNote = entry.type != 'expense'
         ? ''
         : entry.paymentSource == 'wallet'
@@ -2722,8 +4281,13 @@ class _TransactionTile extends StatelessWidget {
         child: Card(
             child: Column(children: [
           ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 15, vertical: 7),
+            onTap: () => _showTransactionDetails(context),
+            dense: compact,
+            visualDensity: compact
+                ? const VisualDensity(horizontal: -1, vertical: -2)
+                : VisualDensity.standard,
+            contentPadding: EdgeInsets.symmetric(
+                horizontal: compact ? 12 : 15, vertical: compact ? 2 : 7),
             leading: CircleAvatar(
                 backgroundColor: (isIncome
                         ? const Color(0xFF65DDBA)
@@ -2737,38 +4301,57 @@ class _TransactionTile extends StatelessWidget {
                         ? const Color(0xFF65DDBA)
                         : const Color(0xFFFF837A))),
             title: Text(entry.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w700)),
             subtitle: Text(
-                '${isIncome ? contributionNote : '${entry.category}$paymentNote'} • ${DateFormat('d MMM, h:mm a').format(DateTime.fromMillisecondsSinceEpoch(entry.createdAt))}'),
+              '${isIncome ? contributionNote : '${entry.category}$paymentNote • Added by ${creator?.name ?? 'Former member'}'} • ${DateFormat('d MMM, h:mm a').format(DateTime.fromMillisecondsSinceEpoch(entry.createdAt))}',
+              maxLines: compact ? 2 : null,
+              overflow: compact ? TextOverflow.ellipsis : null,
+              style: compact
+                  ? TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant)
+                  : null,
+            ),
             trailing: Row(mainAxisSize: MainAxisSize.min, children: [
               Text(
-                  '${isIncome ? '+' : '-'}${formatMoney(entry.amount, currencyCode)}',
+                  '${isIncome ? (entry.isMemberDeposit ? '↗ ' : '+') : '-'}${formatMoney(entry.amount, currencyCode)}',
                   style: TextStyle(
                       fontWeight: FontWeight.w900,
-                      color:
-                          isIncome ? const Color(0xFF65DDBA) : Colors.white)),
-              if (canDelete)
+                      color: isIncome
+                          ? entry.isRejectedDeposit
+                              ? _surfaceAccent(context, const Color(0xFFFF837A))
+                              : entry.isPendingDeposit
+                                  ? _surfaceAccent(
+                                      context, const Color(0xFFFFB45E))
+                                  : _surfaceAccent(
+                                      context, const Color(0xFF65DDBA))
+                          : Theme.of(context).colorScheme.onSurface)),
+              if (canEdit || canDelete)
                 PopupMenuButton<String>(
-                    itemBuilder: (_) => const [
-                          PopupMenuItem(
-                              height: 44,
-                              padding: EdgeInsets.symmetric(horizontal: 14),
-                              value: 'edit',
-                              child: Row(children: [
-                                Icon(Icons.edit_rounded, size: 20),
-                                SizedBox(width: 10),
-                                Text('Edit'),
-                              ])),
-                          PopupMenuItem(
-                              height: 44,
-                              padding: EdgeInsets.symmetric(horizontal: 14),
-                              value: 'delete',
-                              child: Row(children: [
-                                Icon(Icons.delete_rounded,
-                                    size: 20, color: Color(0xFFFF837A)),
-                                SizedBox(width: 10),
-                                Text('Delete'),
-                              ])),
+                    itemBuilder: (_) => [
+                          if (canEdit)
+                            const PopupMenuItem(
+                                height: 44,
+                                padding: EdgeInsets.symmetric(horizontal: 14),
+                                value: 'edit',
+                                child: Row(children: [
+                                  Icon(Icons.edit_rounded, size: 20),
+                                  SizedBox(width: 10),
+                                  Text('Edit'),
+                                ])),
+                          if (canDelete)
+                            const PopupMenuItem(
+                                height: 44,
+                                padding: EdgeInsets.symmetric(horizontal: 14),
+                                value: 'delete',
+                                child: Row(children: [
+                                  Icon(Icons.delete_rounded,
+                                      size: 20, color: Color(0xFFFF837A)),
+                                  SizedBox(width: 10),
+                                  Text('Delete'),
+                                ])),
                         ],
                     onSelected: (value) {
                       if (value == 'edit') onEdit?.call();
@@ -2776,9 +4359,489 @@ class _TransactionTile extends StatelessWidget {
                     })
             ]),
           ),
-          if (database != null && groupId != null) _reactionBar(context),
+          if (canReview && onConfirm != null && onReject != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(15, 0, 15, 10),
+              child: Row(children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onReject,
+                    icon: const Icon(Icons.close_rounded),
+                    label: const Text('Reject'),
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFFF837A)),
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: onConfirm,
+                    icon: const Icon(Icons.check_rounded),
+                    label: const Text('Confirm'),
+                  ),
+                ),
+              ]),
+            ),
+          if (!compact && database != null && groupId != null)
+            _reactionBar(context),
         ])));
   }
+
+  Future<void> _showTransactionDetails(BuildContext context) {
+    final isDeposit = entry.isDeposit;
+    final payer = members[entry.paidBy];
+    final creator = members[entry.createdBy];
+    final recipient = members[entry.depositTo];
+    final reviewer = members[entry.reviewedBy];
+    final date = DateTime.fromMillisecondsSinceEpoch(entry.createdAt);
+    final accent = isDeposit
+        ? entry.isRejectedDeposit
+            ? const Color(0xFFFF837A)
+            : entry.isPendingDeposit
+                ? const Color(0xFFFFB45E)
+                : const Color(0xFF65DDBA)
+        : const Color(0xFFFFD75E);
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => FractionallySizedBox(
+        heightFactor: .9,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(children: [
+            Row(children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: .14),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Icon(
+                  isDeposit
+                      ? Icons.handshake_rounded
+                      : Icons.receipt_long_rounded,
+                  color: accent,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(isDeposit ? 'Deposit details' : 'Expense details',
+                        style: Theme.of(sheetContext)
+                            .textTheme
+                            .headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.w900)),
+                    Text(entry.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: Theme.of(sheetContext)
+                                .colorScheme
+                                .onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.pop(sheetContext),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ]),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView(children: [
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: [
+                      accent.withValues(
+                          alpha: Theme.of(sheetContext).brightness ==
+                                  Brightness.light
+                              ? .12
+                              : .22),
+                      Theme.of(sheetContext).brightness == Brightness.light
+                          ? Theme.of(sheetContext)
+                              .colorScheme
+                              .surfaceContainerHighest
+                          : const Color(0xFF171A27),
+                    ]),
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: accent.withValues(alpha: .35)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(isDeposit ? 'AMOUNT' : 'TOTAL EXPENSE',
+                          style: TextStyle(
+                              color: Theme.of(sheetContext).brightness ==
+                                      Brightness.light
+                                  ? Theme.of(sheetContext)
+                                      .colorScheme
+                                      .onSurfaceVariant
+                                  : Colors.white54,
+                              fontSize: 11,
+                              letterSpacing: 1.1)),
+                      const SizedBox(height: 6),
+                      Text(formatMoney(entry.amount, currencyCode),
+                          style: TextStyle(
+                              color: _surfaceAccent(sheetContext, accent),
+                              fontSize: 32,
+                              fontWeight: FontWeight.w900)),
+                      if (!isDeposit) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          entry.paymentSource == 'wallet'
+                              ? 'Group wallet ${formatMoney(entry.walletUsed, currencyCode)}${entry.personalPaid > 0 ? ' + personal ${formatMoney(entry.personalPaid, currencyCode)}' : ''}'
+                              : '${payer?.name ?? 'Former member'} paid personally',
+                          style: TextStyle(
+                              color: Theme.of(sheetContext)
+                                  .colorScheme
+                                  .onSurfaceVariant),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                        children: isDeposit
+                            ? [
+                                _detailRow(
+                                    'Paid by', payer?.name ?? 'Former member'),
+                                _detailRow(
+                                    'Paid to',
+                                    entry.isWalletDeposit
+                                        ? 'Group wallet'
+                                        : recipient?.name ?? 'Former member'),
+                                _detailRow(
+                                    'Status',
+                                    entry.isPendingDeposit
+                                        ? 'Pending confirmation'
+                                        : entry.isRejectedDeposit
+                                            ? 'Rejected'
+                                            : 'Confirmed',
+                                    valueColor:
+                                        _surfaceAccent(sheetContext, accent)),
+                                if (reviewer != null)
+                                  _detailRow('Reviewed by', reviewer.name),
+                                if (entry.rejectionReason.isNotEmpty)
+                                  _detailRow(
+                                      'Rejection reason', entry.rejectionReason,
+                                      valueColor: const Color(0xFFFF837A)),
+                                _detailRow('Date',
+                                    DateFormat('d MMM yyyy').format(date)),
+                                _detailRow(
+                                    'Time', DateFormat('h:mm a').format(date),
+                                    showDivider: false),
+                              ]
+                            : [
+                                _detailRow('Category', entry.category),
+                                _detailRow(
+                                    'Paid by', payer?.name ?? 'Former member'),
+                                _detailRow('Added by',
+                                    creator?.name ?? 'Former member'),
+                                _detailRow(
+                                    'Payment source',
+                                    entry.paymentSource == 'wallet'
+                                        ? 'Group wallet'
+                                        : 'Personal money'),
+                                if (entry.personalPaid > 0)
+                                  _detailRow(
+                                      'Outside wallet',
+                                      formatMoney(
+                                          entry.personalPaid, currencyCode),
+                                      valueColor: const Color(0xFF62B8FF)),
+                                _detailRow('Date',
+                                    DateFormat('d MMM yyyy').format(date)),
+                                _detailRow(
+                                    'Time', DateFormat('h:mm a').format(date),
+                                    showDivider: false),
+                              ]),
+                  ),
+                ),
+                if (!isDeposit && entry.splitAmong.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  Text('Split shares',
+                      style: Theme.of(sheetContext)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 8),
+                  Card(
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? const Color(0xFFF6F3FF)
+                        : null,
+                    child: Column(
+                      children: entry.splitAmong.entries.map((share) {
+                        final member = members[share.key];
+                        final settlement = entry.settlements[share.key];
+                        final isPayer = share.key == entry.paidBy;
+                        final status = isPayer
+                            ? 'Paid the expense'
+                            : settlement?.isConfirmed == true
+                                ? 'Settled'
+                                : settlement?.isPending == true
+                                    ? 'Pending confirmation'
+                                    : 'Unpaid';
+                        return ListTile(
+                          leading: _MemberAvatar(member: member),
+                          title: Text(member?.name ?? 'Former member'),
+                          subtitle: Text(status),
+                          trailing: Text(formatMoney(share.value, currencyCode),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w900)),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ]),
+            ),
+            if (!isDeposit &&
+                database != null &&
+                groupId != null &&
+                entry.createdBy != database!.user.uid) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _questionExpense(
+                      sheetContext, creator?.name ?? 'Former member'),
+                  icon: const Icon(Icons.forum_outlined),
+                  label: const Text('Discuss in group'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFFFB45E),
+                    minimumSize: const Size.fromHeight(50),
+                  ),
+                ),
+              ),
+            ],
+            if (canReview && onConfirm != null && onReject != null) ...[
+              const SizedBox(height: 10),
+              Row(children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(sheetContext);
+                      onReject?.call();
+                    },
+                    icon: const Icon(Icons.close_rounded),
+                    label: const Text('Reject'),
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFFF837A),
+                        minimumSize: const Size.fromHeight(52)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.pop(sheetContext);
+                      onConfirm?.call();
+                    },
+                    icon: const Icon(Icons.check_rounded),
+                    label: const Text('Confirm'),
+                    style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52)),
+                  ),
+                ),
+              ]),
+            ],
+            if (canEdit || canDelete) ...[
+              const SizedBox(height: 10),
+              Row(children: [
+                if (canDelete)
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(sheetContext);
+                        onDelete();
+                      },
+                      icon: const Icon(Icons.delete_outline_rounded),
+                      label: const Text('Delete'),
+                      style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFFF837A),
+                          minimumSize: const Size.fromHeight(52)),
+                    ),
+                  ),
+                if (canDelete && canEdit) const SizedBox(width: 10),
+                if (canEdit)
+                  Expanded(
+                    child: FilledButton.tonalIcon(
+                      onPressed: () {
+                        Navigator.pop(sheetContext);
+                        onEdit?.call();
+                      },
+                      icon: const Icon(Icons.edit_rounded),
+                      label: const Text('Edit'),
+                      style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(52)),
+                    ),
+                  ),
+              ]),
+            ],
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _questionExpense(
+      BuildContext sheetContext, String creatorName) async {
+    var draft = '';
+    String? error;
+    final reason = await showModalBottomSheet<String>(
+      context: sheetContext,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setLocalState) => SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+              20, 4, 20, MediaQuery.viewInsetsOf(context).bottom + 20),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0x22FFB45E),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(Icons.report_problem_outlined,
+                    color: Color(0xFFFFB45E)),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Discuss this expense',
+                          style: TextStyle(
+                              fontSize: 19, fontWeight: FontWeight.w900)),
+                      Text('The member who added it will be mentioned.',
+                          style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                              fontSize: 11)),
+                    ]),
+              ),
+            ]),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+              decoration: BoxDecoration(
+                color: const Color(0xFF171925),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF303345)),
+              ),
+              child: Text('@$creatorName  •  ${entry.title}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      color: Color(0xFFBEB5FF), fontWeight: FontWeight.w800)),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              autofocus: true,
+              minLines: 3,
+              maxLines: 5,
+              maxLength: 600,
+              onChanged: (value) {
+                draft = value;
+                if (error != null && value.trim().isNotEmpty) {
+                  setLocalState(() => error = null);
+                }
+              },
+              decoration: InputDecoration(
+                hintText: 'Explain what looks wrong with this expense',
+                errorText: error,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () {
+                    final value = draft.trim();
+                    if (value.isEmpty) {
+                      setLocalState(
+                          () => error = 'Enter a short reason or question.');
+                      return;
+                    }
+                    Navigator.pop(context, value);
+                  },
+                  icon: const Icon(Icons.send_rounded),
+                  label: const Text('Send'),
+                ),
+              ),
+            ]),
+          ]),
+        ),
+      ),
+    );
+    if (reason == null || reason.isEmpty) return;
+    if (!sheetContext.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(sheetContext);
+    try {
+      await database!.sendExpenseDiscussion(
+        groupId: groupId!,
+        entry: entry,
+        creatorName: creatorName,
+        reason: reason,
+      );
+      if (sheetContext.mounted) Navigator.pop(sheetContext);
+      messenger.showSnackBar(const SnackBar(
+        content: Text('Expense discussion sent to the group.'),
+        duration: Duration(milliseconds: 2500),
+      ));
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(
+        content: Text('Could not send the discussion. Please try again.'),
+        duration: Duration(milliseconds: 2500),
+      ));
+    }
+  }
+
+  Widget _detailRow(String label, String value,
+          {Color? valueColor, bool showDivider = true}) =>
+      Column(children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(
+              width: 116,
+              child:
+                  Text(label, style: const TextStyle(color: Color(0xFF858896))),
+            ),
+            Expanded(
+              child: Text(value,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                      color: valueColor, fontWeight: FontWeight.w700)),
+            ),
+          ]),
+        ),
+        if (showDivider) const Divider(height: 1),
+      ]);
 
   Widget _reactionBar(BuildContext context) =>
       StreamBuilder<Map<String, String>>(
@@ -2795,8 +4858,11 @@ class _TransactionTile extends StatelessWidget {
             child: Row(children: [
               Expanded(
                 child: counts.isEmpty
-                    ? const Text('Be the first to react',
-                        style: TextStyle(color: Colors.white38, fontSize: 11))
+                    ? Text('Be the first to react',
+                        style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 11))
                     : Wrap(
                         spacing: 5,
                         runSpacing: 4,
@@ -2904,14 +4970,13 @@ class _TransactionTile extends StatelessWidget {
                       ?.copyWith(fontWeight: FontWeight.w800)),
               const Spacer(),
               Text('${reactedMembers.length}',
-                  style: const TextStyle(color: Colors.white54)),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ]),
             const SizedBox(height: 12),
             ...reactedMembers.map((member) => ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(
-                    child: Text(member.name.isEmpty ? '?' : member.name[0]),
-                  ),
+                  leading: _MemberAvatar(member: member),
                   title: Text(member.name),
                   subtitle: member.email.isEmpty ? null : Text(member.email),
                 )),
@@ -2948,16 +5013,15 @@ class _MemberDashboard extends StatelessWidget {
   final String currencyCode;
   @override
   Widget build(BuildContext context) {
-    final deposits = entries
-        .where((e) => e.type == 'contribution' && e.paidBy == member.uid)
-        .fold<double>(0, (s, e) => s + e.amount);
+    final deposits = _confirmedDepositCreditFor(entries, member.uid);
+    final settlements = _confirmedSettlementCreditFor(entries, member.uid);
     final share = entries
         .where((e) => e.type == 'expense')
         .fold<double>(0, (s, e) => s + (e.splitAmong[member.uid] ?? 0));
     final paid = entries
         .where((e) => e.type == 'expense' && e.paidBy == member.uid)
         .fold<double>(0, (s, e) => s + e.personalPaid);
-    final score = math.max(0.0, deposits + paid - share);
+    final score = math.max(0.0, deposits + paid - share + settlements);
     return SafeArea(
         child: FractionallySizedBox(
             heightFactor: .88,
@@ -2967,11 +5031,7 @@ class _MemberDashboard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(children: [
-                        CircleAvatar(
-                            radius: 26,
-                            child: Text(
-                                member.name.isEmpty ? '?' : member.name[0],
-                                style: const TextStyle(fontSize: 20))),
+                        _MemberAvatar(member: member, radius: 26),
                         const SizedBox(width: 14),
                         Expanded(
                             child: Column(
@@ -2983,7 +5043,10 @@ class _MemberDashboard extends StatelessWidget {
                                       .titleLarge
                                       ?.copyWith(fontWeight: FontWeight.w900)),
                               Text(member.email,
-                                  style: const TextStyle(color: Colors.white54))
+                                  style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant))
                             ]))
                       ]),
                       const SizedBox(height: 26),
@@ -2997,7 +5060,7 @@ class _MemberDashboard extends StatelessWidget {
                         Expanded(
                             child: _Metric(
                                 currencyCode: currencyCode,
-                                label: 'Deposited',
+                                label: 'Deposit credit',
                                 value: deposits,
                                 color: const Color(0xFF65DDBA))),
                         const SizedBox(width: 10),
@@ -3060,7 +5123,9 @@ class _Metric extends StatelessWidget {
           borderRadius: BorderRadius.circular(18)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(label,
-            style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 12)),
         const SizedBox(height: 5),
         Text(formatMoney(value, currencyCode),
             style: TextStyle(

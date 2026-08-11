@@ -27,6 +27,21 @@ class DatabaseService {
     });
   }
 
+  Future<void> syncCurrentUserProfileToGroups() async {
+    final membershipSnapshot = await _db.ref('groupMembers/${user.uid}').get();
+    final value = membershipSnapshot.value;
+    if (value is! Map) return;
+    final updates = <String, Object?>{};
+    for (final groupId in value.keys.map((key) => '$key')) {
+      updates['groups/$groupId/members/${user.uid}/name'] =
+          user.displayName ?? 'Friend';
+      updates['groups/$groupId/members/${user.uid}/email'] = user.email ?? '';
+      updates['groups/$groupId/members/${user.uid}/photoUrl'] =
+          user.photoURL ?? '';
+    }
+    if (updates.isNotEmpty) await _db.ref().update(updates);
+  }
+
   Stream<List<LedgerEntry>> watchTransactions(String groupId) {
     return _db.ref('transactions/$groupId').onValue.map((event) {
       final value = event.snapshot.value;
@@ -69,7 +84,9 @@ class DatabaseService {
     void emit() {
       final unread = messages
           .where((item) =>
-              item.createdAt > lastReadAt && item.senderId != user.uid)
+              !item.isSettlementEvent &&
+              item.createdAt > lastReadAt &&
+              item.senderId != user.uid)
           .toList();
       final displayName = mentionName?.trim().isNotEmpty == true
           ? mentionName!.trim()
@@ -128,16 +145,67 @@ class DatabaseService {
     });
   }
 
-  Future<void> sendTextMessage(String groupId, String text,
-      {bool sticker = false}) {
+  Future<void> sendTextMessage(
+    String groupId,
+    String text, {
+    bool sticker = false,
+    GroupMessage? replyTo,
+  }) {
     final ref = _db.ref('groupChats/$groupId/messages').push();
     return ref.set({
       'kind': sticker ? 'sticker' : 'text',
       'text': text.trim(),
+      if (replyTo != null) ...{
+        'replyToId': replyTo.id,
+        'replyToSenderId': replyTo.senderId,
+        'replyToSenderName': replyTo.senderName,
+        'replyToText': _replyPreviewText(replyTo),
+      },
       'senderId': user.uid,
       'senderName': user.displayName ?? 'Friend',
       'createdAt': ServerValue.timestamp,
     });
+  }
+
+  String _replyPreviewText(GroupMessage message) {
+    final preview = switch (message.kind) {
+      'audio' => 'Voice message',
+      'poll' => 'Poll: ${message.pollQuestion}',
+      'expenseDiscussion' => 'Expense: ${message.expenseTitle}',
+      _ => message.text,
+    };
+    final clean = preview.trim();
+    return clean.length <= 300 ? clean : clean.substring(0, 300);
+  }
+
+  Future<void> sendExpenseDiscussion({
+    required String groupId,
+    required LedgerEntry entry,
+    required String creatorName,
+    required String reason,
+  }) {
+    final ref = _db.ref('groupChats/$groupId/messages').push();
+    return ref.set({
+      'kind': 'expenseDiscussion',
+      'text': '@$creatorName, please review "${entry.title}".',
+      'transactionId': entry.id,
+      'expenseTitle': entry.title,
+      'expenseAmount': entry.amount,
+      'discussionReason': reason.trim(),
+      'senderId': user.uid,
+      'senderName': user.displayName ?? 'Friend',
+      'createdAt': ServerValue.timestamp,
+    });
+  }
+
+  Future<LedgerEntry?> getTransaction(
+      String groupId, String transactionId) async {
+    final snapshot =
+        await _db.ref('transactions/$groupId/$transactionId').get();
+    final value = snapshot.value;
+    if (value is! Map) return null;
+    return LedgerEntry.fromMap(
+        transactionId, Map<dynamic, dynamic>.from(value));
   }
 
   Future<void> editTextMessage(String groupId, String messageId, String text) =>
@@ -247,7 +315,9 @@ class DatabaseService {
         row.key.toString(),
         Map<dynamic, dynamic>.from(row.value as Map),
       );
-      if (entry.type == 'contribution') deposited += entry.amount;
+      if (entry.isConfirmedDeposit && entry.isWalletDeposit) {
+        deposited += entry.amount;
+      }
       if (entry.type == 'expense') walletSpent += entry.walletUsed;
     }
     return max(0, deposited - walletSpent).toDouble();
@@ -260,6 +330,7 @@ class DatabaseService {
     final member = {
       'name': user.displayName ?? 'Friend',
       'email': user.email ?? '',
+      'photoUrl': user.photoURL ?? '',
       'role': 'admin',
       'joinedAt': ServerValue.timestamp,
     };
@@ -317,6 +388,7 @@ class DatabaseService {
       'groups/$groupId/members/${user.uid}': {
         'name': user.displayName ?? 'Friend',
         'email': user.email ?? '',
+        'photoUrl': user.photoURL ?? '',
         'role': 'viewer',
         'joinedAt': ServerValue.timestamp,
       },
@@ -331,6 +403,7 @@ class DatabaseService {
       'groups/$groupId/members/$uid': {
         'name': name,
         'email': email,
+        'photoUrl': '',
         'role': 'viewer',
         'joinedAt': ServerValue.timestamp,
       },
@@ -345,6 +418,7 @@ class DatabaseService {
         'groups/$groupId/formerMembers/${member.uid}': {
           'name': member.name,
           'email': member.email,
+          'photoUrl': member.photoUrl,
           'role': 'former',
           'removedAt': ServerValue.timestamp,
         },
@@ -386,19 +460,29 @@ class DatabaseService {
     });
   }
 
-  Future<void> addContribution({
+  Future<void> addDeposit({
     required String groupId,
-    required String memberId,
+    required String depositTarget,
+    required String depositTo,
     required double amount,
     required int occurredAt,
   }) {
+    if (depositTarget != 'wallet' && depositTarget != 'member') {
+      throw ArgumentError('Invalid deposit target.');
+    }
+    if (depositTarget == 'member' && depositTo.isEmpty) {
+      throw ArgumentError('Choose a member to receive the deposit.');
+    }
     final ref = _db.ref('transactions/$groupId').push();
     return ref.set({
       'type': 'contribution',
-      'title': 'Wallet contribution',
+      'title': depositTarget == 'wallet' ? 'Wallet deposit' : 'Member deposit',
       'category': 'Contribution',
       'amount': amount,
-      'paidBy': memberId,
+      'paidBy': user.uid,
+      'depositTarget': depositTarget,
+      'depositTo': depositTarget == 'member' ? depositTo : '',
+      'status': 'pending',
       'splitAmong': <String, double>{},
       'createdBy': user.uid,
       'createdAt': occurredAt,
@@ -438,18 +522,129 @@ class DatabaseService {
     });
   }
 
-  Future<void> updateContribution({
+  Future<void> updateDeposit({
     required String groupId,
     required String transactionId,
-    required String memberId,
+    required String depositTarget,
+    required String depositTo,
     required double amount,
     required int occurredAt,
   }) =>
       _db.ref('transactions/$groupId/$transactionId').update({
+        'title':
+            depositTarget == 'wallet' ? 'Wallet deposit' : 'Member deposit',
         'amount': amount,
-        'paidBy': memberId,
+        'depositTarget': depositTarget,
+        'depositTo': depositTarget == 'member' ? depositTo : '',
         'createdAt': occurredAt,
       });
+
+  Future<void> reviewDeposit({
+    required String groupId,
+    required LedgerEntry entry,
+    required bool approve,
+    required String reviewerName,
+    required String senderName,
+    String rejectionReason = '',
+  }) {
+    final updates = <String, Object?>{
+      'transactions/$groupId/${entry.id}/status':
+          approve ? 'confirmed' : 'rejected',
+      'transactions/$groupId/${entry.id}/reviewedBy': user.uid,
+      'transactions/$groupId/${entry.id}/reviewedAt': ServerValue.timestamp,
+      'transactions/$groupId/${entry.id}/rejectionReason':
+          approve ? null : rejectionReason.trim(),
+    };
+    if (!approve) {
+      final messageRef = _db.ref('groupChats/$groupId/messages').push();
+      updates['groupChats/$groupId/messages/${messageRef.key}'] = {
+        'kind': 'text',
+        'text':
+            '❌ @$senderName, your ${entry.isWalletDeposit ? 'group wallet' : 'member'} deposit was rejected by $reviewerName.${rejectionReason.trim().isEmpty ? '' : ' Reason: ${rejectionReason.trim()}'}',
+        'senderId': user.uid,
+        'senderName': reviewerName,
+        'createdAt': ServerValue.timestamp,
+      };
+    }
+    return _db.ref().update(updates);
+  }
+
+  Future<void> requestExpenseSettlement({
+    required String groupId,
+    required LedgerEntry entry,
+    required String debtorName,
+    required String payerName,
+  }) {
+    final messageRef = _db.ref('groupChats/$groupId/messages').push();
+    return _db.ref().update({
+      'transactions/$groupId/${entry.id}/settlements/${user.uid}': {
+        'status': 'pending',
+        'requestedBy': user.uid,
+        'requestedAt': ServerValue.timestamp,
+      },
+      'groupChats/$groupId/messages/${messageRef.key}': {
+        'kind': 'settlement',
+        'text':
+            '💸 @$payerName, $debtorName marked ${entry.title} as settled. Please confirm the payment.',
+        'senderId': user.uid,
+        'senderName': debtorName,
+        'createdAt': ServerValue.timestamp,
+      },
+    });
+  }
+
+  Future<void> confirmExpenseSettlement({
+    required String groupId,
+    required LedgerEntry entry,
+    required String debtorUid,
+    required String debtorName,
+    required String confirmerName,
+  }) {
+    final current = entry.settlements[debtorUid];
+    final messageRef = _db.ref('groupChats/$groupId/messages').push();
+    return _db.ref().update({
+      'transactions/$groupId/${entry.id}/settlements/$debtorUid/status':
+          'confirmed',
+      'transactions/$groupId/${entry.id}/settlements/$debtorUid/requestedBy':
+          current?.requestedBy.isNotEmpty == true
+              ? current!.requestedBy
+              : user.uid,
+      'transactions/$groupId/${entry.id}/settlements/$debtorUid/requestedAt':
+          current?.requestedAt != null && current!.requestedAt > 0
+              ? current.requestedAt
+              : ServerValue.timestamp,
+      'transactions/$groupId/${entry.id}/settlements/$debtorUid/confirmedBy':
+          user.uid,
+      'transactions/$groupId/${entry.id}/settlements/$debtorUid/confirmedAt':
+          ServerValue.timestamp,
+      'groupChats/$groupId/messages/${messageRef.key}': {
+        'kind': 'settlement',
+        'text':
+            '✅ @$debtorName, your settlement for ${entry.title} was confirmed by $confirmerName.',
+        'senderId': user.uid,
+        'senderName': confirmerName,
+        'createdAt': ServerValue.timestamp,
+      },
+    });
+  }
+
+  Future<void> remindExpenseSettlement({
+    required String groupId,
+    required LedgerEntry entry,
+    required String debtorName,
+    required String payerName,
+    required double amount,
+  }) {
+    final messageRef = _db.ref('groupChats/$groupId/messages').push();
+    return messageRef.set({
+      'kind': 'settlement',
+      'text':
+          '⏰ @$debtorName, reminder from $payerName: your ${amount.toStringAsFixed(2)} share for ${entry.title} is still unsettled.',
+      'senderId': user.uid,
+      'senderName': payerName,
+      'createdAt': ServerValue.timestamp,
+    });
+  }
 
   Future<void> updateExpense({
     required String groupId,
@@ -476,6 +671,7 @@ class DatabaseService {
       'paymentSource': paymentSource,
       'walletUsed': walletUsed,
       'personalPaid': amount - walletUsed,
+      'settlements': null,
       'createdAt': occurredAt,
     });
   }

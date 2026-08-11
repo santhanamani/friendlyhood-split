@@ -84,11 +84,13 @@ class GroupMember {
       {required this.uid,
       required this.name,
       required this.email,
-      required this.role});
+      required this.role,
+      required this.photoUrl});
   final String uid;
   final String name;
   final String email;
   final String role;
+  final String photoUrl;
 
   factory GroupMember.fromMap(String uid, Map<dynamic, dynamic> data) =>
       GroupMember(
@@ -96,6 +98,39 @@ class GroupMember {
         name: data['name'] as String? ?? 'Friend',
         email: data['email'] as String? ?? '',
         role: data['role'] as String? ?? 'viewer',
+        photoUrl: data['photoUrl'] as String? ?? '',
+      );
+}
+
+class ExpenseSettlement {
+  const ExpenseSettlement({
+    required this.memberId,
+    required this.status,
+    required this.requestedBy,
+    required this.requestedAt,
+    required this.confirmedBy,
+    required this.confirmedAt,
+  });
+
+  final String memberId;
+  final String status;
+  final String requestedBy;
+  final int requestedAt;
+  final String confirmedBy;
+  final int confirmedAt;
+
+  bool get isPending => status == 'pending';
+  bool get isConfirmed => status == 'confirmed';
+
+  factory ExpenseSettlement.fromMap(
+          String memberId, Map<dynamic, dynamic> data) =>
+      ExpenseSettlement(
+        memberId: memberId,
+        status: data['status'] as String? ?? 'unpaid',
+        requestedBy: data['requestedBy'] as String? ?? '',
+        requestedAt: (data['requestedAt'] as num?)?.toInt() ?? 0,
+        confirmedBy: data['confirmedBy'] as String? ?? '',
+        confirmedAt: (data['confirmedAt'] as num?)?.toInt() ?? 0,
       );
 }
 
@@ -112,6 +147,13 @@ class LedgerEntry {
     required this.walletUsed,
     required this.personalPaid,
     required this.splitAmong,
+    required this.depositTarget,
+    required this.depositTo,
+    required this.status,
+    required this.reviewedBy,
+    required this.reviewedAt,
+    required this.rejectionReason,
+    required this.settlements,
     required this.createdAt,
   });
   final String id;
@@ -125,11 +167,30 @@ class LedgerEntry {
   final double walletUsed;
   final double personalPaid;
   final Map<String, double> splitAmong;
+  final String depositTarget;
+  final String depositTo;
+  final String status;
+  final String reviewedBy;
+  final int reviewedAt;
+  final String rejectionReason;
+  final Map<String, ExpenseSettlement> settlements;
   final int createdAt;
+
+  bool get isDeposit => type == 'contribution';
+  bool get isLegacyDeposit => isDeposit && status.isEmpty;
+  bool get isPendingDeposit => isDeposit && status == 'pending';
+  bool get isConfirmedDeposit =>
+      isDeposit && (status == 'confirmed' || isLegacyDeposit);
+  bool get isRejectedDeposit => isDeposit && status == 'rejected';
+  bool get isWalletDeposit =>
+      isDeposit && (depositTarget == 'wallet' || depositTarget.isEmpty);
+  bool get isMemberDeposit => isDeposit && depositTarget == 'member';
 
   factory LedgerEntry.fromMap(String id, Map<dynamic, dynamic> data) {
     final rawSplit =
         Map<dynamic, dynamic>.from(data['splitAmong'] as Map? ?? {});
+    final rawSettlements =
+        Map<dynamic, dynamic>.from(data['settlements'] as Map? ?? {});
     final type = data['type'] as String? ?? 'expense';
     final amount = (data['amount'] as num?)?.toDouble() ?? 0;
     final paymentSource = data['paymentSource'] as String? ??
@@ -149,6 +210,18 @@ class LedgerEntry {
           (type == 'expense' && paymentSource == 'personal' ? amount : 0),
       splitAmong:
           rawSplit.map((k, v) => MapEntry(k.toString(), (v as num).toDouble())),
+      depositTarget: data['depositTarget'] as String? ??
+          (type == 'contribution' ? 'wallet' : ''),
+      depositTo: data['depositTo'] as String? ?? '',
+      status: data['status'] as String? ?? '',
+      reviewedBy: data['reviewedBy'] as String? ?? '',
+      reviewedAt: (data['reviewedAt'] as num?)?.toInt() ?? 0,
+      rejectionReason: data['rejectionReason'] as String? ?? '',
+      settlements: rawSettlements.map((key, value) => MapEntry(
+            key.toString(),
+            ExpenseSettlement.fromMap(
+                key.toString(), Map<dynamic, dynamic>.from(value as Map)),
+          )),
       createdAt: (data['createdAt'] as num?)?.toInt() ?? 0,
     );
   }
@@ -165,6 +238,14 @@ class GroupMessage {
     required this.audioDurationSeconds,
     required this.pollQuestion,
     required this.pollOptions,
+    required this.transactionId,
+    required this.expenseTitle,
+    required this.expenseAmount,
+    required this.discussionReason,
+    required this.replyToId,
+    required this.replyToSenderId,
+    required this.replyToSenderName,
+    required this.replyToText,
     required this.createdAt,
     required this.editedAt,
   });
@@ -178,8 +259,22 @@ class GroupMessage {
   final int audioDurationSeconds;
   final String pollQuestion;
   final Map<String, String> pollOptions;
+  final String transactionId;
+  final String expenseTitle;
+  final double expenseAmount;
+  final String discussionReason;
+  final String replyToId;
+  final String replyToSenderId;
+  final String replyToSenderName;
+  final String replyToText;
   final int createdAt;
   final int editedAt;
+
+  bool get isSettlementEvent =>
+      kind == 'settlement' ||
+      text.startsWith('💸 ') ||
+      text.startsWith('✅ ') ||
+      text.startsWith('⏰ ');
 
   factory GroupMessage.fromMap(String id, Map<dynamic, dynamic> data) {
     final rawOptions =
@@ -195,6 +290,14 @@ class GroupMessage {
           (data['audioDurationSeconds'] as num?)?.toInt() ?? 0,
       pollQuestion: data['pollQuestion'] as String? ?? '',
       pollOptions: rawOptions.map((key, value) => MapEntry('$key', '$value')),
+      transactionId: data['transactionId'] as String? ?? '',
+      expenseTitle: data['expenseTitle'] as String? ?? '',
+      expenseAmount: (data['expenseAmount'] as num?)?.toDouble() ?? 0,
+      discussionReason: data['discussionReason'] as String? ?? '',
+      replyToId: data['replyToId'] as String? ?? '',
+      replyToSenderId: data['replyToSenderId'] as String? ?? '',
+      replyToSenderName: data['replyToSenderName'] as String? ?? '',
+      replyToText: data['replyToText'] as String? ?? '',
       createdAt: (data['createdAt'] as num?)?.toInt() ?? 0,
       editedAt: (data['editedAt'] as num?)?.toInt() ?? 0,
     );

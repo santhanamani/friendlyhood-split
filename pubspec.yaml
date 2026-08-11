@@ -1,7 +1,7 @@
 name: friendlyhood_split
 description: Friendlyhood Split - a modern group wallet and expense splitting app.
 publish_to: none
-version: 1.0.8+10
+version: 1.0.9+11
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -20,6 +20,8 @@ dependencies:
   path_provider: ^2.1.6
   record: ^7.1.1
   audioplayers: ^6.8.1
+  shared_preferences: ^2.5.3
+  scrollable_positioned_list: ^0.3.8
 
 dev_dependencies:
   flutter_test:

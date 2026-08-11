@@ -70,11 +70,13 @@ class _AboutScreenState extends State<AboutScreen> {
                 accent: Color(0xFFFFB45E),
               ),
               const SizedBox(height: 30),
-              const Center(
+              Center(
                 child: Text(
                   'Built with care for every friendlyhood  •  Made in India',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12),
                 ),
               ),
             ],
@@ -179,8 +181,9 @@ class _VersionCard extends StatelessWidget {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(release.updateMessage,
-                    style:
-                        const TextStyle(color: Colors.white54, fontSize: 12)),
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 12)),
               ),
             ],
           ],
@@ -210,12 +213,15 @@ class _InfoRow extends StatelessWidget {
                   : const Color(0xFF9B8EFF)),
           const SizedBox(width: 13),
           Expanded(
-              child:
-                  Text(label, style: const TextStyle(color: Colors.white60))),
+              child: Text(label,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant))),
           Text(value,
               style: TextStyle(
                   fontWeight: FontWeight.w800,
-                  color: highlight ? const Color(0xFF65DDBA) : Colors.white)),
+                  color: highlight
+                      ? const Color(0xFF26A884)
+                      : Theme.of(context).colorScheme.onSurface)),
         ],
       );
 }
@@ -248,17 +254,19 @@ class _StoryCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(19),
         decoration: BoxDecoration(
-          color: const Color(0xFF151721),
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(21),
           border: Border(
               left: BorderSide(color: accent, width: 3),
-              top: const BorderSide(color: Color(0xFF252836)),
-              right: const BorderSide(color: Color(0xFF252836)),
-              bottom: const BorderSide(color: Color(0xFF252836))),
+              top: BorderSide(color: Theme.of(context).dividerColor),
+              right: BorderSide(color: Theme.of(context).dividerColor),
+              bottom: BorderSide(color: Theme.of(context).dividerColor)),
         ),
         child: Text(text,
-            style: const TextStyle(
-                color: Colors.white70, height: 1.55, fontSize: 14)),
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                height: 1.55,
+                fontSize: 14)),
       );
 }
 
