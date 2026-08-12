@@ -129,6 +129,9 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
     return PopScope(
       canPop: !_forceUpdate && !_downloading,
       child: AlertDialog(
+        backgroundColor: isLight ? AppColors.surface : null,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: isLight ? AppColors.primary.withValues(alpha: 0.16) : null,
         icon: Container(
           width: 68,
           height: 68,
@@ -144,7 +147,14 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
           child: Icon(Icons.system_update_alt_rounded,
               size: 34, color: isLight ? AppColors.primary : Colors.white),
         ),
-        title: Text(latest.updateTitle, textAlign: TextAlign.center),
+        title: Text(
+          latest.updateTitle,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: isLight ? AppColors.textPrimary : colors.onSurface,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 390),
           child: Column(
@@ -153,7 +163,12 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
               Text(
                 latest.updateMessage,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: colors.onSurfaceVariant, height: 1.45),
+                style: TextStyle(
+                  color: isLight
+                      ? AppColors.textSecondary
+                      : colors.onSurfaceVariant,
+                  height: 1.45,
+                ),
               ),
               const SizedBox(height: 20),
               Container(
@@ -174,7 +189,9 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
                             value:
                                 '${widget.update.installedVersion} (${widget.update.installedVersionCode})')),
                     Icon(Icons.arrow_forward_rounded,
-                        color: colors.onSurfaceVariant),
+                    color: isLight
+                        ? AppColors.textMuted
+                        : colors.onSurfaceVariant),
                     Expanded(
                         child: _Version(
                             label: 'Latest',
@@ -192,8 +209,12 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
                   percent == null
                       ? 'Downloading update…'
                       : 'Downloading… $percent%',
-                  style:
-                      TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+                  style: TextStyle(
+                    color: isLight
+                        ? AppColors.textSecondary
+                        : colors.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
                 ),
               ],
               if (_error != null) ...[
@@ -201,8 +222,12 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
                 Text(
                   _error!,
                   textAlign: TextAlign.center,
-                  style:
-                      const TextStyle(color: Color(0xFFFF9B92), fontSize: 13),
+                  style: TextStyle(
+                    color: isLight
+                        ? AppColors.expense
+                        : const Color(0xFFFF9B92),
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ],
@@ -237,16 +262,22 @@ class _Version extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return Column(children: [
       Text(label,
-          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11)),
+          style: TextStyle(
+            color: isLight ? AppColors.textMuted : colors.onSurfaceVariant,
+            fontSize: 11,
+          )),
       const SizedBox(height: 4),
       Text(
         value,
         textAlign: TextAlign.center,
         style: TextStyle(
           fontWeight: FontWeight.w800,
-          color: highlight ? _updateAccent(context) : colors.onSurface,
+          color: highlight
+              ? _updateAccent(context)
+              : (isLight ? AppColors.textPrimary : colors.onSurface),
         ),
       ),
     ]);
