@@ -3,6 +3,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../models/app_update_model.dart';
 import '../services/app_update_service.dart';
+import '../theme/app_colors.dart';
 
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
@@ -91,59 +92,74 @@ class _BrandHero extends StatelessWidget {
   const _BrandHero();
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(26),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF745CFF), Color(0xFF372B86), Color(0xFF173C3A)],
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final heroText = Colors.white;
+    return Container(
+      padding: const EdgeInsets.all(26),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isLight
+              ? const [Color(0xFF6D5EF3), Color(0xFF6258DB), Color(0xFF66A7BC)]
+              : const [Color(0xFF745CFF), Color(0xFF372B86), Color(0xFF173C3A)],
+        ),
+        border: isLight ? Border.all(color: AppColors.primaryBorder) : null,
+        boxShadow: [
+          BoxShadow(
+              color:
+                  isLight ? const Color(0x145B4BE8) : const Color(0x445F4AE3),
+              blurRadius: 34,
+              offset: const Offset(0, 14)),
+        ],
+      ),
+      child: Column(
+        children: [
+          const _AppMark(),
+          const SizedBox(height: 18),
+          Text(
+            'BroSplit',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: heroText,
+                fontSize: 27,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -.8),
           ),
-          boxShadow: const [
-            BoxShadow(
-                color: Color(0x445F4AE3),
-                blurRadius: 34,
-                offset: Offset(0, 14)),
-          ],
-        ),
-        child: const Column(
-          children: [
-            _AppMark(),
-            SizedBox(height: 18),
-            Text(
-              'BroSplit',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontSize: 27,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -.8),
-            ),
-            SizedBox(height: 7),
-            Text(
-              'Spend together. Settle smarter.',
-              style:
-                  TextStyle(color: Colors.white70, fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-      );
+          const SizedBox(height: 7),
+          Text(
+            'Spend together. Settle smarter.',
+            style: TextStyle(
+                color: isLight ? const Color(0xFFECEAFF) : Colors.white70,
+                fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _AppMark extends StatelessWidget {
   const _AppMark();
 
   @override
-  Widget build(BuildContext context) => Container(
-        width: 70,
-        height: 70,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .13),
-          borderRadius: BorderRadius.circular(23),
-          border: Border.all(color: Colors.white24),
-        ),
-        child: const Icon(Icons.hub_rounded, size: 36),
-      );
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return Container(
+      width: 70,
+      height: 70,
+      decoration: BoxDecoration(
+        color: isLight
+            ? Colors.white.withValues(alpha: .13)
+            : Colors.white.withValues(alpha: .13),
+        borderRadius: BorderRadius.circular(23),
+        border: Border.all(color: isLight ? Colors.white38 : Colors.white24),
+      ),
+      child: Icon(Icons.hub_rounded, size: 36, color: Colors.white),
+    );
+  }
 }
 
 class _VersionCard extends StatelessWidget {
@@ -209,8 +225,10 @@ class _InfoRow extends StatelessWidget {
         children: [
           Icon(icon,
               color: highlight
-                  ? const Color(0xFF65DDBA)
-                  : const Color(0xFF9B8EFF)),
+                  ? AppColors.success
+                  : Theme.of(context).brightness == Brightness.light
+                      ? AppColors.primary
+                      : const Color(0xFF9B8EFF)),
           const SizedBox(width: 13),
           Expanded(
               child: Text(label,
@@ -220,7 +238,7 @@ class _InfoRow extends StatelessWidget {
               style: TextStyle(
                   fontWeight: FontWeight.w800,
                   color: highlight
-                      ? const Color(0xFF26A884)
+                      ? AppColors.success
                       : Theme.of(context).colorScheme.onSurface)),
         ],
       );
@@ -234,7 +252,11 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
         children: [
-          Icon(icon, size: 20, color: const Color(0xFF9B8EFF)),
+          Icon(icon,
+              size: 20,
+              color: Theme.of(context).brightness == Brightness.light
+                  ? AppColors.primary
+                  : const Color(0xFF9B8EFF)),
           const SizedBox(width: 9),
           Text(title,
               style: Theme.of(context)
@@ -251,23 +273,28 @@ class _StoryCard extends StatelessWidget {
   final Color accent;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(19),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(21),
-          border: Border(
-              left: BorderSide(color: accent, width: 3),
-              top: BorderSide(color: Theme.of(context).dividerColor),
-              right: BorderSide(color: Theme.of(context).dividerColor),
-              bottom: BorderSide(color: Theme.of(context).dividerColor)),
-        ),
-        child: Text(text,
-            style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                height: 1.55,
-                fontSize: 14)),
-      );
+  Widget build(BuildContext context) {
+    final effectiveAccent = Theme.of(context).brightness == Brightness.light
+        ? AppColors.primary
+        : accent;
+    return Container(
+      padding: const EdgeInsets.all(19),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(21),
+        border: Border(
+            left: BorderSide(color: effectiveAccent, width: 3),
+            top: BorderSide(color: Theme.of(context).dividerColor),
+            right: BorderSide(color: Theme.of(context).dividerColor),
+            bottom: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      child: Text(text,
+          style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.55,
+              fontSize: 14)),
+    );
+  }
 }
 
 class _AboutData {

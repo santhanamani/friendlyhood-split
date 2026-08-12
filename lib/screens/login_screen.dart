@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../theme/app_colors.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -158,7 +159,7 @@ class _AuroraBackground extends StatelessWidget {
             radius: 1.4,
             colors: Theme.of(context).brightness == Brightness.dark
                 ? const [Color(0x443E2F8F), Color(0xFF0B0C12)]
-                : const [Color(0x33745CFF), Color(0xFFF3F4F9)],
+                : const [Color(0x225B4BE8), AppColors.background],
           ),
         ),
       );

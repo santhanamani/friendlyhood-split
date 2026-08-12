@@ -11,6 +11,7 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../models/app_models.dart';
 import '../models/currency_data.dart';
 import '../services/database_service.dart';
+import '../theme/app_colors.dart';
 
 Color _chatSurfaceAccent(BuildContext context, Color color) =>
     Theme.of(context).brightness == Brightness.light
@@ -204,7 +205,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     required VoidCallback onTap,
   }) =>
       Material(
-        color: selected ? const Color(0xFF514987) : Colors.transparent,
+        color: selected
+            ? (Theme.of(context).brightness == Brightness.light
+                ? AppColors.primary
+                : const Color(0xFF514987))
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
@@ -338,6 +343,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   Widget _messageBubble(GroupMessage item) {
     final mine = item.senderId == widget.currentUid;
     final colors = Theme.of(context).colorScheme;
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return ValueListenableBuilder<String?>(
       valueListenable: highlightedMessage,
       builder: (context, highlightedId, _) {
@@ -360,8 +366,12 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 color: item.kind == 'sticker'
                     ? Colors.transparent
                     : mine
-                        ? colors.primaryContainer
-                        : colors.surfaceContainerHigh,
+                        ? (isLight
+                            ? const Color(0xFFEEEAFE)
+                            : colors.primaryContainer)
+                        : (isLight
+                            ? AppColors.surface
+                            : colors.surfaceContainerHigh),
                 borderRadius: BorderRadius.circular(18).copyWith(
                   bottomRight: mine ? const Radius.circular(5) : null,
                   bottomLeft: mine ? null : const Radius.circular(5),
@@ -371,9 +381,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     : item.kind == 'sticker'
                         ? null
                         : Border.all(
-                            color: mine
-                                ? colors.primary.withValues(alpha: .35)
-                                : colors.outlineVariant),
+                            color: isLight
+                                ? AppColors.border
+                                : mine
+                                    ? colors.primary.withValues(alpha: .35)
+                                    : colors.outlineVariant),
                 boxShadow: highlighted
                     ? const [
                         BoxShadow(
@@ -434,7 +446,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(10, 8, 7, 8),
           decoration: BoxDecoration(
-            color: colors.surface.withValues(alpha: .5),
+            color: Theme.of(context).brightness == Brightness.light
+                ? const Color(0xFFE2DEFA)
+                : colors.surface.withValues(alpha: .5),
             borderRadius: BorderRadius.circular(11),
             border: Border(
               left: BorderSide(
@@ -534,12 +548,17 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: .14),
+              color: Theme.of(context).brightness == Brightness.light
+                  ? AppColors.inputBackground
+                  : Colors.black.withValues(alpha: .14),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(children: [
-              const Icon(Icons.receipt_long_rounded,
-                  size: 18, color: Color(0xFFFFD75E)),
+              Icon(Icons.receipt_long_rounded,
+                  size: 18,
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? AppColors.warning
+                      : const Color(0xFFFFD75E)),
               const SizedBox(width: 7),
               Expanded(
                 child: Text(item.expenseTitle,
@@ -832,7 +851,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         : '?';
     return CircleAvatar(
       foregroundColor: Colors.white,
-      backgroundColor: const Color(0xFF514987),
+      backgroundColor: Theme.of(context).brightness == Brightness.light
+          ? AppColors.primary
+          : const Color(0xFF514987),
       foregroundImage: hasPhoto ? NetworkImage(photoUri.toString()) : null,
       onForegroundImageError: hasPhoto ? (_, __) {} : null,
       child: Text(initial),
@@ -874,7 +895,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   ? const Color(0xFF8A4700)
                   : const Color(0xFFFFD27A)
               : isLight
-                  ? const Color(0xFF5037A8)
+                  ? const Color(0xFF5141C5)
                   : const Color(0xFFBEB5FF),
           fontWeight: FontWeight.w900,
           backgroundColor: mentionsMe
@@ -882,7 +903,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   ? const Color(0x33E68A00)
                   : const Color(0x33FFB45E)
               : isLight
-                  ? const Color(0x229070FF)
+                  ? const Color(0xFFDCD6FF)
                   : const Color(0x229B8EFF),
         ),
       ));
@@ -919,9 +940,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 7, vertical: 3),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF242638),
+                            color:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? AppColors.primaryTint
+                                    : const Color(0xFF242638),
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFF3A3D54)),
+                            border: Border.all(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.light
+                                    ? AppColors.border
+                                    : const Color(0xFF3A3D54)),
                           ),
                           child: Text('${entry.key} ${entry.value}',
                               style: const TextStyle(fontSize: 11)),
@@ -958,7 +986,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       ?.copyWith(fontWeight: FontWeight.w800)),
               const Spacer(),
               Text('${members.length}',
-                  style: const TextStyle(color: Colors.white54)),
+                  style: TextStyle(
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? AppColors.textMuted
+                          : Colors.white54)),
             ]),
             const SizedBox(height: 12),
             ...members.map((member) => ListTile(
@@ -981,10 +1012,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       margin: const EdgeInsets.fromLTRB(14, 4, 14, 4),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: isLight ? const Color(0xFFFFF1F3) : const Color(0xFF3A2029),
+        color: isLight ? AppColors.expenseBackground : const Color(0xFF3A2029),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-            color: isLight ? const Color(0xFFF0B8C0) : const Color(0xFF7B3D48)),
+            color: isLight ? AppColors.border : const Color(0xFF7B3D48)),
       ),
       child: Row(children: [
         const Icon(Icons.mic_rounded, color: Color(0xFFE05D69)),
@@ -1031,7 +1062,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   border: Border.all(color: Theme.of(context).dividerColor),
                   boxShadow: [
                     BoxShadow(
-                        color: Colors.black.withValues(alpha: .16),
+                        color: Colors.black.withValues(
+                            alpha:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? .06
+                                    : .16),
                         blurRadius: 18,
                         offset: const Offset(0, -4)),
                   ],
@@ -1055,9 +1090,12 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       subtitle: member.uid == widget.currentUid
                           ? const Text('You')
                           : null,
-                      trailing: const Text('@',
+                      trailing: Text('@',
                           style: TextStyle(
-                              color: Color(0xFFB7AEFF),
+                              color: Theme.of(context).brightness ==
+                                      Brightness.light
+                                  ? AppColors.primary
+                                  : const Color(0xFFB7AEFF),
                               fontSize: 20,
                               fontWeight: FontWeight.w900)),
                       onTap: () => _insertMention(member, value),
@@ -1279,13 +1317,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                                 decoration: BoxDecoration(
                                     color: Theme.of(context).brightness ==
                                             Brightness.light
-                                        ? const Color(0xFFF1EEFF)
+                                        ? AppColors.primaryTint
                                         : const Color(0xFF202231),
                                     borderRadius: BorderRadius.circular(14),
                                     border: Border.all(
                                         color: Theme.of(context).brightness ==
                                                 Brightness.light
-                                            ? const Color(0xFFDCD6F4)
+                                            ? AppColors.primaryBorder
                                             : const Color(0xFF34364A))),
                                 child: Text(emoji,
                                     style: const TextStyle(fontSize: 28))),
@@ -1520,11 +1558,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF9B8EFF).withValues(alpha: .16),
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? AppColors.primaryLight
+                        : const Color(0xFF9B8EFF).withValues(alpha: .16),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child:
-                      const Icon(Icons.poll_rounded, color: Color(0xFFB7AEFF)),
+                  child: Icon(Icons.poll_rounded,
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? AppColors.primary
+                          : const Color(0xFFB7AEFF)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1586,13 +1628,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                             radius: 12,
                             backgroundColor:
                                 Theme.of(context).brightness == Brightness.light
-                                    ? const Color(0xFFE6E0FF)
+                                    ? AppColors.primaryLight
                                     : const Color(0xFF34304F),
                             child: Text('${index + 1}',
                                 style: TextStyle(
                                     color: Theme.of(context).brightness ==
                                             Brightness.light
-                                        ? const Color(0xFF514987)
+                                        ? AppColors.primary
                                         : const Color(0xFFCEC7FF),
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800)),

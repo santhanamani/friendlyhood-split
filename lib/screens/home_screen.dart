@@ -9,6 +9,7 @@ import '../models/app_models.dart';
 import '../models/currency_data.dart';
 import '../services/database_service.dart';
 import '../services/theme_controller.dart';
+import '../theme/app_colors.dart';
 import 'app_settings_screen.dart';
 import 'group_chat_screen.dart';
 
@@ -74,19 +75,25 @@ InputDecoration _dropdownDecoration(
   final isLight = Theme.of(context).brightness == Brightness.light;
   return InputDecoration(
     labelText: label,
-    prefixIcon: Icon(icon, color: const Color(0xFF9B8EFF)),
+    prefixIcon: Icon(
+      icon,
+      color: isLight ? AppColors.primary : const Color(0xFF9B8EFF),
+    ),
     prefixIconConstraints: const BoxConstraints(minWidth: 46),
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 17),
     filled: true,
-    fillColor: isLight ? const Color(0xFFF9F8FD) : const Color(0xFF1B1D2B),
+    fillColor: isLight ? AppColors.surface : const Color(0xFF1B1D2B),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(16),
       borderSide: BorderSide(
-          color: isLight ? const Color(0xFFD7D3E2) : const Color(0xFF37344D)),
+          color: isLight ? AppColors.border : const Color(0xFF37344D)),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: Color(0xFF9B8EFF), width: 1.5),
+      borderSide: BorderSide(
+        color: isLight ? AppColors.primary : const Color(0xFF9B8EFF),
+        width: 1.5,
+      ),
     ),
   );
 }
@@ -99,24 +106,27 @@ InputDecoration _amountDecoration(BuildContext context, String currencyCode) {
     prefixIcon: Center(
       widthFactor: 1,
       child: Text(currencyForCode(currencyCode).symbol,
-          style: const TextStyle(
-              color: Color(0xFF65DDBA),
+          style: TextStyle(
+              color: isLight ? AppColors.success : const Color(0xFF65DDBA),
               fontSize: 20,
               fontWeight: FontWeight.w700)),
     ),
     prefixIconConstraints: const BoxConstraints(minWidth: 46),
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
     filled: true,
-    fillColor: isLight ? const Color(0xFFF3FAF7) : const Color(0xFF202333),
+    fillColor: isLight ? AppColors.surface : const Color(0xFF202333),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(16),
       borderSide: BorderSide(
-          color: isLight ? const Color(0xFFBED8CF) : const Color(0xFF55506F),
+          color: isLight ? AppColors.border : const Color(0xFF55506F),
           width: 1.2),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: Color(0xFF9B8EFF), width: 2),
+      borderSide: BorderSide(
+        color: isLight ? AppColors.primary : const Color(0xFF9B8EFF),
+        width: 2,
+      ),
     ),
   );
 }
@@ -199,7 +209,7 @@ class _FriendlyDropdown extends StatelessWidget {
           const SizedBox(width: 8),
           Icon(Icons.keyboard_arrow_down_rounded,
               color: Theme.of(context).brightness == Brightness.light
-                  ? const Color(0xFF62599C)
+                  ? AppColors.primary
                   : const Color(0xFFB7AEFF)),
         ]),
       ),
@@ -344,10 +354,10 @@ class _TransactionTypeSelector extends StatelessWidget {
       height: 52,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: isLight ? const Color(0xFFF2F0F8) : const Color(0xFF12141E),
+        color: isLight ? AppColors.inputBackground : const Color(0xFF12141E),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-            color: isLight ? const Color(0xFFD6D1E2) : const Color(0xFF454159)),
+            color: isLight ? AppColors.border : const Color(0xFF454159)),
       ),
       child: Row(
         children: [
@@ -363,7 +373,7 @@ class _TransactionTypeSelector extends StatelessWidget {
       BuildContext context, String option, String label, IconData icon) {
     final selected = value == option;
     final inactive = Theme.of(context).brightness == Brightness.light
-        ? const Color(0xFF565363)
+        ? const Color(0xFF555968)
         : Colors.white70;
     return Expanded(
       child: InkWell(
@@ -373,7 +383,11 @@ class _TransactionTypeSelector extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFF57508E) : Colors.transparent,
+            color: selected
+                ? (Theme.of(context).brightness == Brightness.light
+                    ? AppColors.primary
+                    : const Color(0xFF57508E))
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -465,14 +479,15 @@ Widget _transactionDateTimeField(
   final isLight = Theme.of(context).brightness == Brightness.light;
   return Container(
     decoration: BoxDecoration(
-      color: isLight ? const Color(0xFFF6F4FB) : const Color(0xFF1B1D2B),
+      color: isLight ? AppColors.surface : const Color(0xFF1B1D2B),
       borderRadius: BorderRadius.circular(16),
       border: Border.all(
-          color: isLight ? const Color(0xFFD8D3E3) : const Color(0xFF37344D)),
+          color: isLight ? AppColors.border : const Color(0xFF37344D)),
     ),
     child: ListTile(
       onTap: onTap,
-      leading: const Icon(Icons.event_rounded, color: Color(0xFF9B8EFF)),
+      leading: Icon(Icons.event_rounded,
+          color: isLight ? AppColors.primary : const Color(0xFF9B8EFF)),
       title: Text('Transaction date & time',
           style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -629,7 +644,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _hero(List<SplitGroup> groups) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final muted = isLight ? const Color(0xFF5E5878) : Colors.white70;
+    final muted = isLight ? const Color(0xFFE5E2FF) : Colors.white70;
     return Container(
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.all(24),
@@ -639,13 +654,14 @@ class _HomeScreenState extends State<HomeScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: isLight
-              ? const [Color(0xFFE8E3FF), Color(0xFFDCD5FF), Color(0xFFD7F3ED)]
+              ? const [Color(0xFF7163F4), Color(0xFF6254DF), Color(0xFF5148BA)]
               : const [Color(0xFF745CFF), Color(0xFF4738AE), Color(0xFF252055)],
         ),
+        border: isLight ? Border.all(color: AppColors.primaryBorder) : null,
         boxShadow: [
           BoxShadow(
               color:
-                  isLight ? const Color(0x225F4AE3) : const Color(0x445F4AE3),
+                  isLight ? const Color(0x185B4BE8) : const Color(0x445F4AE3),
               blurRadius: 35,
               offset: const Offset(0, 15))
         ],
@@ -661,8 +677,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         fontSize: 11, letterSpacing: 1.6, color: muted)),
                 const SizedBox(height: 10),
                 Text('${groups.length}',
-                    style: const TextStyle(
-                        fontSize: 38, height: 1, fontWeight: FontWeight.w900)),
+                    style: TextStyle(
+                        color: isLight ? Colors.white : null,
+                        fontSize: 38,
+                        height: 1,
+                        fontWeight: FontWeight.w900)),
                 const SizedBox(height: 6),
                 Text('active money circles', style: TextStyle(color: muted)),
               ],
@@ -673,10 +692,11 @@ class _HomeScreenState extends State<HomeScreen> {
             height: 74,
             decoration: BoxDecoration(
                 color: isLight
-                    ? Colors.white.withValues(alpha: .58)
+                    ? Colors.white.withValues(alpha: .15)
                     : Colors.white.withValues(alpha: .12),
                 shape: BoxShape.circle),
-            child: const Icon(Icons.blur_circular_rounded, size: 40),
+            child: Icon(Icons.blur_circular_rounded,
+                size: 40, color: isLight ? Colors.white : null),
           ),
         ],
       ),
@@ -996,8 +1016,9 @@ class _GroupCardChatStatusState extends State<_GroupCardChatStatus> {
                         fontSize: 11,
                         fontWeight: FontWeight.w900)),
               ),
-            const Icon(Icons.arrow_forward_ios_rounded,
-                size: 15, color: Colors.white38),
+            Icon(Icons.arrow_forward_ios_rounded,
+                size: 15,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
           ]);
         },
       );
@@ -1390,8 +1411,11 @@ class _GroupScreenState extends State<GroupScreen> {
                           style: TextStyle(
                               fontSize: 20, fontWeight: FontWeight.w900)),
                       Text('${group.members.length} active members',
-                          style: const TextStyle(
-                              color: Colors.white54, fontSize: 11)),
+                          style: TextStyle(
+                              color: Theme.of(sheetContext)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                              fontSize: 11)),
                     ]),
               ),
               IconButton(
@@ -1447,9 +1471,12 @@ class _GroupScreenState extends State<GroupScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              const Text('Net credit',
+                              Text('Net credit',
                                   style: TextStyle(
-                                      color: Colors.white38, fontSize: 9)),
+                                      color: Theme.of(sheetContext)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                      fontSize: 9)),
                               Text(formatMoney(netCredit, group.currencyCode),
                                   style: const TextStyle(
                                       color: Color(0xFF65DDBA),
@@ -2039,13 +2066,13 @@ class _GroupScreenState extends State<GroupScreen> {
                               decoration: BoxDecoration(
                                 color: Theme.of(context).brightness ==
                                         Brightness.light
-                                    ? const Color(0xFFF8F7FC)
+                                    ? AppColors.surface
                                     : const Color(0xFF12141E),
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
                                     color: Theme.of(context).brightness ==
                                             Brightness.light
-                                        ? const Color(0xFFD8D4E3)
+                                        ? AppColors.border
                                         : const Color(0xFF343247)),
                               ),
                               child: Scrollbar(
@@ -2178,7 +2205,11 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                 borderRadius: BorderRadius.circular(24),
                 gradient: LinearGradient(
                     colors: Theme.of(context).brightness == Brightness.light
-                        ? const [Color(0xFFE9E5FF), Color(0xFFDDF3F1)]
+                        ? const [
+                            Color(0xFFEEEAFE),
+                            Color(0xFFF3F1FF),
+                            Color(0xFFEAF6F5)
+                          ]
                         : const [Color(0xFF302A62), Color(0xFF172E3A)]),
               ),
               child: Row(children: [
@@ -2192,7 +2223,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                             style: TextStyle(
                                 color: Theme.of(context).brightness ==
                                         Brightness.light
-                                    ? const Color(0xFF22263A)
+                                    ? AppColors.textPrimary
                                     : Colors.white,
                                 fontSize: 21,
                                 fontWeight: FontWeight.w900)),
@@ -2203,12 +2234,14 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                             style: TextStyle(
                                 color: Theme.of(context).brightness ==
                                         Brightness.light
-                                    ? const Color(0xFF667080)
+                                    ? const Color(0xFF626675)
                                     : Colors.white60)),
                       ]),
                 ),
                 Icon(isAdmin ? Icons.admin_panel_settings : Icons.lock_outline,
-                    color: const Color(0xFF65DDBA)),
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? AppColors.success
+                        : const Color(0xFF65DDBA)),
               ]),
             ),
             const SizedBox(height: 22),
@@ -2229,7 +2262,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
             const SizedBox(height: 8),
             Card(
               color: Theme.of(context).brightness == Brightness.light
-                  ? const Color(0xFFF3F0FF)
+                  ? AppColors.surface
                   : null,
               child: ListTile(
                 leading: const Icon(Icons.drive_file_rename_outline_rounded,
@@ -2245,7 +2278,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
             const SizedBox(height: 12),
             Card(
               color: Theme.of(context).brightness == Brightness.light
-                  ? const Color(0xFFEEF8F6)
+                  ? AppColors.surface
                   : null,
               child: ListTile(
                 leading: Text(currencyForCode(group.currencyCode).flag,
@@ -2286,7 +2319,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
             const SizedBox(height: 10),
             Card(
               color: Theme.of(context).brightness == Brightness.light
-                  ? const Color(0xFFF6F3FF)
+                  ? AppColors.surface
                   : null,
               child: Column(
                 children: group.members.values.map((member) {
@@ -2386,7 +2419,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
     final categories = _expenseCategoriesFor(group);
     return Card(
       color: Theme.of(context).brightness == Brightness.light
-          ? const Color(0xFFFFF7E9)
+          ? AppColors.surface
           : null,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 15, 12, 16),
@@ -2425,10 +2458,10 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                 .map((category) => Chip(
                       backgroundColor:
                           Theme.of(context).brightness == Brightness.light
-                              ? const Color(0xFFFFFCF5)
+                              ? const Color(0xFFF7F7FA)
                               : null,
                       side: Theme.of(context).brightness == Brightness.light
-                          ? const BorderSide(color: Color(0xFFE8DCC5))
+                          ? const BorderSide(color: Color(0xFFDFE1E8))
                           : null,
                       avatar: group.customExpenseCategories.any((item) =>
                               item.toLowerCase() == category.toLowerCase())
@@ -2449,12 +2482,12 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: Theme.of(context).brightness == Brightness.light
-              ? const Color(0xFFEDE9FF)
+              ? const Color(0xFFF4F1FF)
               : const Color(0xFF181827),
           borderRadius: BorderRadius.circular(22),
           border: Border.all(
               color: Theme.of(context).brightness == Brightness.light
-                  ? const Color(0xFFCFC7F1)
+                  ? const Color(0xFFDCD6FF)
                   : const Color(0xFF3D3862)),
         ),
         child: Row(children: [
@@ -2463,7 +2496,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
             height: 46,
             decoration: BoxDecoration(
                 color: Theme.of(context).brightness == Brightness.light
-                    ? const Color(0xFFDCD5FF)
+                    ? const Color(0xFFE8E4FF)
                     : const Color(0xFF2C2948),
                 borderRadius: BorderRadius.circular(15)),
             child: const Icon(Icons.key_rounded, color: Color(0xFF9B8EFF)),
@@ -2475,7 +2508,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
               Text('GROUP ACCESS CODE',
                   style: TextStyle(
                       color: Theme.of(context).brightness == Brightness.light
-                          ? const Color(0xFF6C6680)
+                          ? AppColors.textMuted
                           : Colors.white54,
                       fontSize: 11,
                       letterSpacing: 1.2)),
@@ -2486,7 +2519,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                       : group.accessCode,
                   style: TextStyle(
                       color: Theme.of(context).brightness == Brightness.light
-                          ? const Color(0xFF28233F)
+                          ? const Color(0xFF252034)
                           : Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
@@ -2850,7 +2883,9 @@ class _MemberAvatar extends StatelessWidget {
     final name = member?.name ?? '';
     return CircleAvatar(
       radius: radius,
-      backgroundColor: const Color(0xFF514987),
+      backgroundColor: Theme.of(context).brightness == Brightness.light
+          ? AppColors.primary
+          : const Color(0xFF514987),
       foregroundColor: Colors.white,
       foregroundImage: image,
       onForegroundImageError: image == null ? null : (_, __) {},
@@ -2874,7 +2909,7 @@ class _AdminPeopleDirectoryCard extends StatelessWidget {
     final stackWidth = 34.0 + math.max(0, visible.length - 1) * 22;
     return Card(
       color: Theme.of(context).brightness == Brightness.light
-          ? const Color(0xFFF0F7FF)
+          ? AppColors.surface
           : null,
       margin: EdgeInsets.zero,
       child: InkWell(
@@ -2962,7 +2997,7 @@ class _MemberPositionCard extends StatelessWidget {
       const SizedBox(height: 10),
       Card(
         color: Theme.of(context).brightness == Brightness.light
-            ? const Color(0xFFF7F3FF)
+            ? AppColors.surface
             : null,
         margin: EdgeInsets.zero,
         child: InkWell(
@@ -3004,7 +3039,7 @@ class _MemberPositionCard extends StatelessWidget {
                   child: _PositionMetric(
                     label: 'You need to pay',
                     value: formatMoney(toPay, currencyCode),
-                    color: const Color(0xFFFFB45E),
+                    color: AppColors.warning,
                   ),
                 ),
                 Container(
@@ -3015,7 +3050,7 @@ class _MemberPositionCard extends StatelessWidget {
                   child: _PositionMetric(
                     label: 'You will receive',
                     value: formatMoney(toReceive, currencyCode),
-                    color: const Color(0xFF65DDBA),
+                    color: AppColors.success,
                   ),
                 ),
               ]),
@@ -3023,9 +3058,7 @@ class _MemberPositionCard extends StatelessWidget {
               Row(children: [
                 Icon(isClear ? Icons.check_circle_rounded : Icons.info_rounded,
                     size: 15,
-                    color: isClear
-                        ? const Color(0xFF65DDBA)
-                        : const Color(0xFFFFB45E)),
+                    color: isClear ? AppColors.success : AppColors.warning),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
@@ -3073,7 +3106,9 @@ class _PositionMetric extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                  color: _surfaceAccent(context, color),
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? color
+                      : _surfaceAccent(context, color),
                   fontWeight: FontWeight.w900)),
         ]),
       );
@@ -3094,10 +3129,10 @@ class _DashboardNavigation extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: isLight ? const Color(0xFFFAF8FF) : const Color(0xFF141620),
+        color: isLight ? AppColors.surface : const Color(0xFF141620),
         borderRadius: BorderRadius.circular(17),
         border: Border.all(
-            color: isLight ? const Color(0xFFD9D5E8) : const Color(0xFF292C3B)),
+            color: isLight ? AppColors.border : const Color(0xFF292C3B)),
       ),
       child: Row(
         children: [
@@ -3117,7 +3152,9 @@ class _DashboardNavigation extends StatelessWidget {
         : Colors.white54;
     return Expanded(
       child: Material(
-        color: selected ? const Color(0xFF514987) : Colors.transparent,
+        color: selected
+            ? (isLight ? AppColors.primary : const Color(0xFF514987))
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(13),
         child: InkWell(
           onTap: () => onChanged(index),
@@ -3167,19 +3204,18 @@ class _WalletCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final ink = isLight ? const Color(0xFF183646) : Colors.white;
-    final muted = isLight ? const Color(0xFF607783) : Colors.white54;
+    final ink = isLight ? AppColors.textPrimary : Colors.white;
+    final muted = isLight ? const Color(0xFF6E7280) : Colors.white54;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-              color:
-                  isLight ? const Color(0xFFB7D3DF) : const Color(0xFF315164)),
+              color: isLight ? AppColors.border : const Color(0xFF315164)),
           boxShadow: [
             BoxShadow(
                 color:
-                    isLight ? const Color(0x1F448B91) : const Color(0x241CA8A0),
+                    isLight ? const Color(0x145B4BE8) : const Color(0x241CA8A0),
                 blurRadius: 24,
                 spreadRadius: -12)
           ],
@@ -3187,7 +3223,11 @@ class _WalletCard extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: isLight
-                  ? const [Color(0xFFE2EEFF), Color(0xFFDDF5EC)]
+                  ? const [
+                      Color(0xFFF7F6FF),
+                      Color(0xFFF3F7FF),
+                      Color(0xFFF0FBF8)
+                    ]
                   : const [Color(0xFF20374C), Color(0xFF102A30)])),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
@@ -3195,10 +3235,12 @@ class _WalletCard extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-                color: const Color(0x2465DDBA),
+                color: (isLight ? AppColors.success : const Color(0xFF65DDBA))
+                    .withValues(alpha: .12),
                 borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.account_balance_wallet_rounded,
-                color: Color(0xFF65DDBA), size: 20),
+            child: Icon(Icons.account_balance_wallet_rounded,
+                color: isLight ? AppColors.success : const Color(0xFF65DDBA),
+                size: 20),
           ),
           const SizedBox(width: 11),
           Expanded(
@@ -3226,20 +3268,20 @@ class _WalletCard extends StatelessWidget {
                   icon: Icons.south_west_rounded,
                   label: 'Added',
                   value: contributed,
-                  color: const Color(0xFF65DDBA))),
+                  color:
+                      isLight ? AppColors.success : const Color(0xFF65DDBA))),
           Expanded(
               child: _MiniStat(
                   currencyCode: currencyCode,
                   icon: Icons.north_east_rounded,
                   label: 'Spent',
                   value: spent,
-                  color: const Color(0xFFFF837A)))
+                  color: isLight ? AppColors.expense : const Color(0xFFFF837A)))
         ]),
         Padding(
           padding: EdgeInsets.symmetric(vertical: 12),
           child: Divider(
-              height: 1,
-              color: isLight ? const Color(0xFFBDD5DA) : Colors.white12),
+              height: 1, color: isLight ? AppColors.divider : Colors.white12),
         ),
         Row(children: [
           Expanded(
@@ -3248,7 +3290,7 @@ class _WalletCard extends StatelessWidget {
               label: 'Your credit',
               value: formatMoney(currentNetCredit, currencyCode),
               caption: 'Net balance',
-              color: const Color(0xFF65DDBA),
+              color: isLight ? AppColors.success : const Color(0xFF65DDBA),
             ),
           ),
           const SizedBox(width: 9),
@@ -3260,7 +3302,7 @@ class _WalletCard extends StatelessWidget {
               caption: topCategory == null
                   ? 'No spend yet'
                   : '$topCategory • ${monthChange <= 0 ? '↓' : '↑'}${monthChange.abs().toStringAsFixed(0)}%',
-              color: const Color(0xFFFFB45E),
+              color: isLight ? AppColors.warning : const Color(0xFFFFB45E),
             ),
           ),
         ]),
@@ -3290,12 +3332,10 @@ class _WalletInsight extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
       decoration: BoxDecoration(
-        color: isLight
-            ? Colors.white.withValues(alpha: .74)
-            : Colors.white.withValues(alpha: .06),
+        color:
+            isLight ? AppColors.surface : Colors.white.withValues(alpha: .06),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-            color: isLight ? const Color(0xFFBFD8DF) : Colors.white10),
+        border: Border.all(color: isLight ? AppColors.border : Colors.white10),
       ),
       child: Row(children: [
         Icon(icon, color: color, size: 18),
@@ -3307,20 +3347,18 @@ class _WalletInsight extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                    color: isLight ? const Color(0xFF607783) : Colors.white60,
+                    color: isLight ? AppColors.textSecondary : Colors.white60,
                     fontSize: 11)),
             Text(value,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                    color: isLight ? _surfaceAccent(context, color) : color,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900)),
+                    color: color, fontSize: 15, fontWeight: FontWeight.w900)),
             Text(caption,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                    color: isLight ? const Color(0xFF718590) : Colors.white38,
+                    color: isLight ? AppColors.textMuted : Colors.white38,
                     fontSize: 10)),
           ]),
         ),
@@ -3350,11 +3388,11 @@ class _MiniStat extends StatelessWidget {
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(label,
             style: TextStyle(
-                color: isLight ? const Color(0xFF607783) : Colors.white54,
+                color: isLight ? AppColors.textSecondary : Colors.white54,
                 fontSize: 12)),
         Text(formatMoney(value, currencyCode),
             style: TextStyle(
-                color: isLight ? const Color(0xFF183646) : Colors.white,
+                color: isLight ? AppColors.textPrimary : Colors.white,
                 fontWeight: FontWeight.w800))
       ])
     ]);
@@ -3603,7 +3641,9 @@ class _SettlementOverview extends StatelessWidget {
                 ? emptyMessage
                 : '${formatMoney(total, currencyCode)} • ${obligations.length} open${pending > 0 ? ' • $pending pending' : ''}',
             style: TextStyle(
-                color: obligations.isEmpty ? Colors.white38 : color,
+                color: obligations.isEmpty
+                    ? Theme.of(context).colorScheme.onSurfaceVariant
+                    : color,
                 fontSize: 11,
                 fontWeight:
                     obligations.isEmpty ? FontWeight.normal : FontWeight.w700),
@@ -3856,8 +3896,10 @@ class _SettlementOverview extends StatelessWidget {
                     .headlineSmall
                     ?.copyWith(fontWeight: FontWeight.w900)),
             const SizedBox(height: 4),
-            const Text('Expense settlement details',
-                style: TextStyle(color: Colors.white54)),
+            Text('Expense settlement details',
+                style: TextStyle(
+                    color:
+                        Theme.of(sheetContext).colorScheme.onSurfaceVariant)),
             const SizedBox(height: 14),
             Expanded(
               child: ListView.separated(
@@ -3885,8 +3927,11 @@ class _SettlementOverview extends StatelessWidget {
                                   DateFormat('d MMM, h:mm a').format(
                                       DateTime.fromMillisecondsSinceEpoch(
                                           obligation.entry.createdAt)),
-                                  style: const TextStyle(
-                                      color: Colors.white38, fontSize: 11),
+                                  style: TextStyle(
+                                      color: Theme.of(sheetContext)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                      fontSize: 11),
                                 ),
                               ],
                             ),
@@ -3908,10 +3953,19 @@ class _SettlementOverview extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: settled
-                                        ? const Color(0xFF65DDBA)
+                                        ? (Theme.of(sheetContext).brightness ==
+                                                Brightness.light
+                                            ? AppColors.success
+                                            : const Color(0xFF65DDBA))
                                         : pending
-                                            ? const Color(0xFFFFB45E)
-                                            : Colors.white54,
+                                            ? (Theme.of(sheetContext)
+                                                        .brightness ==
+                                                    Brightness.light
+                                                ? AppColors.warning
+                                                : const Color(0xFFFFB45E))
+                                            : Theme.of(sheetContext)
+                                                .colorScheme
+                                                .onSurfaceVariant,
                                   ),
                                 ),
                               ]),
@@ -4388,19 +4442,28 @@ class _TransactionTile extends StatelessWidget {
   }
 
   Future<void> _showTransactionDetails(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     final isDeposit = entry.isDeposit;
     final payer = members[entry.paidBy];
     final creator = members[entry.createdBy];
     final recipient = members[entry.depositTo];
     final reviewer = members[entry.reviewedBy];
     final date = DateTime.fromMillisecondsSinceEpoch(entry.createdAt);
-    final accent = isDeposit
-        ? entry.isRejectedDeposit
-            ? const Color(0xFFFF837A)
-            : entry.isPendingDeposit
-                ? const Color(0xFFFFB45E)
-                : const Color(0xFF65DDBA)
-        : const Color(0xFFFFD75E);
+    final accent = isLight
+        ? isDeposit
+            ? entry.isRejectedDeposit
+                ? AppColors.expense
+                : entry.isPendingDeposit
+                    ? AppColors.warning
+                    : AppColors.success
+            : AppColors.warning
+        : isDeposit
+            ? entry.isRejectedDeposit
+                ? const Color(0xFFFF837A)
+                : entry.isPendingDeposit
+                    ? const Color(0xFFFFB45E)
+                    : const Color(0xFF65DDBA)
+            : const Color(0xFFFFD75E);
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -4576,7 +4639,7 @@ class _TransactionTile extends StatelessWidget {
                   const SizedBox(height: 8),
                   Card(
                     color: Theme.of(context).brightness == Brightness.light
-                        ? const Color(0xFFF6F3FF)
+                        ? AppColors.surface
                         : null,
                     child: Column(
                       children: entry.splitAmong.entries.map((share) {
@@ -4741,15 +4804,23 @@ class _TransactionTile extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
               decoration: BoxDecoration(
-                color: const Color(0xFF171925),
+                color: Theme.of(context).brightness == Brightness.light
+                    ? AppColors.primaryTint
+                    : const Color(0xFF171925),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFF303345)),
+                border: Border.all(
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? AppColors.primaryBorder
+                        : const Color(0xFF303345)),
               ),
               child: Text('@$creatorName  •  ${entry.title}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      color: Color(0xFFBEB5FF), fontWeight: FontWeight.w800)),
+                  style: TextStyle(
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? AppColors.primary
+                          : const Color(0xFFBEB5FF),
+                      fontWeight: FontWeight.w800)),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -4829,8 +4900,13 @@ class _TransactionTile extends StatelessWidget {
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             SizedBox(
               width: 116,
-              child:
-                  Text(label, style: const TextStyle(color: Color(0xFF858896))),
+              child: Builder(
+                builder: (context) => Text(label,
+                    style: TextStyle(
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? AppColors.textMuted
+                            : const Color(0xFF858896))),
+              ),
             ),
             Expanded(
               child: Text(value,
@@ -4875,10 +4951,16 @@ class _TransactionTile extends StatelessWidget {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF242638),
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.light
+                                          ? AppColors.primaryTint
+                                          : const Color(0xFF242638),
                                       borderRadius: BorderRadius.circular(14),
                                       border: Border.all(
-                                          color: const Color(0xFF3A3D54)),
+                                          color: Theme.of(context).brightness ==
+                                                  Brightness.light
+                                              ? AppColors.border
+                                              : const Color(0xFF3A3D54)),
                                     ),
                                     child: Text('${item.key} ${item.value}',
                                         style: const TextStyle(fontSize: 12)),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/app_update_model.dart';
 import '../services/app_update_service.dart';
+import '../theme/app_colors.dart';
 
 class AppUpdateDialog extends StatefulWidget {
   const AppUpdateDialog({
@@ -120,6 +121,8 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
   @override
   Widget build(BuildContext context) {
     final latest = widget.update.info;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final colors = Theme.of(context).colorScheme;
     final percent =
         _progress == null ? null : (_progress! * 100).clamp(0, 100).round();
 
@@ -130,12 +133,16 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
           width: 68,
           height: 68,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF8B7CFF), Color(0xFF35D6B4)],
+            gradient: LinearGradient(
+              colors: isLight
+                  ? const [AppColors.primaryLight, AppColors.primaryTint]
+                  : const [Color(0xFF8B7CFF), Color(0xFF35D6B4)],
             ),
             borderRadius: BorderRadius.circular(22),
+            border: isLight ? Border.all(color: AppColors.border) : null,
           ),
-          child: const Icon(Icons.system_update_alt_rounded, size: 34),
+          child: Icon(Icons.system_update_alt_rounded,
+              size: 34, color: isLight ? AppColors.primary : Colors.white),
         ),
         title: Text(latest.updateTitle, textAlign: TextAlign.center),
         content: ConstrainedBox(
@@ -146,14 +153,18 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
               Text(
                 latest.updateMessage,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white70, height: 1.45),
+                style: TextStyle(color: colors.onSurfaceVariant, height: 1.45),
               ),
               const SizedBox(height: 20),
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A1C28),
+                  color:
+                      isLight ? AppColors.surfaceSoft : const Color(0xFF1A1C28),
                   borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                      color:
+                          isLight ? AppColors.border : const Color(0xFF2D3040)),
                 ),
                 child: Row(
                   children: [
@@ -162,8 +173,8 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
                             label: 'Current',
                             value:
                                 '${widget.update.installedVersion} (${widget.update.installedVersionCode})')),
-                    const Icon(Icons.arrow_forward_rounded,
-                        color: Colors.white38),
+                    Icon(Icons.arrow_forward_rounded,
+                        color: colors.onSurfaceVariant),
                     Expanded(
                         child: _Version(
                             label: 'Latest',
@@ -181,7 +192,8 @@ class _AppUpdateDialogState extends State<AppUpdateDialog>
                   percent == null
                       ? 'Downloading update…'
                       : 'Downloading… $percent%',
-                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                  style:
+                      TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
                 ),
               ],
               if (_error != null) ...[
@@ -223,19 +235,25 @@ class _Version extends StatelessWidget {
   final bool highlight;
 
   @override
-  Widget build(BuildContext context) => Column(
-        children: [
-          Text(label,
-              style: const TextStyle(color: Colors.white54, fontSize: 11)),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              color: highlight ? const Color(0xFF65DDBA) : Colors.white,
-            ),
-          ),
-        ],
-      );
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Column(children: [
+      Text(label,
+          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11)),
+      const SizedBox(height: 4),
+      Text(
+        value,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+          color: highlight ? _updateAccent(context) : colors.onSurface,
+        ),
+      ),
+    ]);
+  }
+
+  Color _updateAccent(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.light
+          ? AppColors.success
+          : const Color(0xFF65DDBA);
 }

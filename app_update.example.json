@@ -1,8 +1,8 @@
 {
   "latestVersion": "1.0.9",
-  "latestVersionCode": 11,
+  "latestVersionCode": 12,
   "apkUrl": "https://github.com/santhanamani/friendlyhood-split/releases/download/v1.0.9/app-release.apk",
   "forceUpdate": false,
   "updateTitle": "New Update Available",
-  "updateMessage": "A polished light theme, stable voice recording, improved group chat replies, and safer expense management."
+  "updateMessage": "A consistent premium light theme across dashboards, transactions, chat, settings, dialogs, and group screens."
 }

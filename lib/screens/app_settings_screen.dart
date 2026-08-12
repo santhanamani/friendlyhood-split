@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../services/auth_service.dart';
 import '../services/theme_controller.dart';
+import '../theme/app_colors.dart';
 import 'about_screen.dart';
 
 class AppSettingsScreen extends StatelessWidget {
@@ -170,7 +171,11 @@ class AppSettingsScreen extends StatelessWidget {
         ],
       ),
     );
-    if (confirmed == true) await AuthService().signOut();
+    if (confirmed != true) return;
+    await AuthService().signOut();
+    if (!context.mounted) return;
+    Navigator.of(context, rootNavigator: true)
+        .popUntil((route) => route.isFirst);
   }
 }
 
@@ -188,13 +193,19 @@ class _ThemeOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Material(
         color: selected
-            ? colors.primaryContainer.withValues(alpha: .7)
+            ? (isLight ? const Color(0xFFEEEBFF) : colors.primaryContainer)
             : Colors.transparent,
-        borderRadius: BorderRadius.circular(18),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: selected && isLight
+              ? const BorderSide(color: Color(0xFFD4CEFF))
+              : BorderSide.none,
+        ),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(18),
@@ -206,12 +217,16 @@ class _ThemeOption extends StatelessWidget {
                 height: 42,
                 decoration: BoxDecoration(
                   color: selected
-                      ? colors.primary.withValues(alpha: .14)
+                      ? (isLight
+                          ? const Color(0xFFDED8FF)
+                          : colors.primary.withValues(alpha: .14))
                       : colors.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: Icon(preference.icon,
-                    color: selected ? colors.primary : colors.onSurfaceVariant),
+                    color: selected
+                        ? (isLight ? const Color(0xFF5546D6) : colors.primary)
+                        : colors.onSurfaceVariant),
               ),
               const SizedBox(width: 13),
               Expanded(
@@ -229,7 +244,9 @@ class _ThemeOption extends StatelessWidget {
               ),
               Icon(
                 selected ? Icons.check_circle_rounded : Icons.circle_outlined,
-                color: selected ? colors.primary : colors.outline,
+                color: selected
+                    ? (isLight ? AppColors.primary : colors.primary)
+                    : (isLight ? const Color(0xFFA5A9B4) : colors.outline),
               ),
             ]),
           ),
