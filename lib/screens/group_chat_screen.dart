@@ -80,98 +80,107 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          titleSpacing: 0,
-          title: Row(children: [
-            CircleAvatar(child: Text(widget.group.emoji)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(widget.group.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w800, fontSize: 17)),
-                    Text('${widget.group.members.length} members',
-                        style: TextStyle(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                            fontSize: 11)),
-                  ]),
-            ),
-          ]),
-        ),
-        body: Column(children: [
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final pageColor =
+        isLight ? const Color(0xFFFBFAFF) : const Color(0xFF020711);
+    return Scaffold(
+      backgroundColor: pageColor,
+      appBar: AppBar(
+        backgroundColor: pageColor,
+        surfaceTintColor: Colors.transparent,
+        titleSpacing: 0,
+        title: Row(children: [
+          CircleAvatar(child: Text(widget.group.emoji)),
+          const SizedBox(width: 10),
           Expanded(
-            child: StreamBuilder<List<GroupMessage>>(
-              stream: widget.database.watchMessages(widget.group.id),
-              builder: (context, snapshot) {
-                final allMessages = snapshot.data ?? [];
-                final messages = allMessages
-                    .where((item) => !item.isSettlementEvent)
-                    .toList();
-                final settlements = allMessages
-                    .where((item) => item.isSettlementEvent)
-                    .toList();
-                if (messages.isNotEmpty &&
-                    messages.last.createdAt > lastMarkedReadAt) {
-                  lastMarkedReadAt = messages.last.createdAt;
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    widget.database
-                        .markChatRead(widget.group.id, lastMarkedReadAt);
-                  });
-                }
-                final selected = showSettlements ? settlements : messages;
-                final reversed = selected.reversed.toList();
-                messageIndexes = showSettlements
-                    ? const {}
-                    : {
-                        for (var index = 0; index < reversed.length; index++)
-                          reversed[index].id: index,
-                      };
-                return Column(
-                  children: [
-                    _categorySelector(),
-                    Expanded(
-                      child: snapshot.connectionState == ConnectionState.waiting
-                          ? const Center(child: CircularProgressIndicator())
-                          : selected.isEmpty
-                              ? showSettlements
-                                  ? _emptySettlements()
-                                  : _emptyChat()
-                              : ScrollablePositionedList.builder(
-                                  itemScrollController: messageScrollController,
-                                  reverse: true,
-                                  padding:
-                                      const EdgeInsets.fromLTRB(14, 8, 14, 12),
-                                  itemCount: reversed.length,
-                                  itemBuilder: (context, index) =>
-                                      showSettlements
-                                          ? _settlementCard(reversed[index])
-                                          : _messageBubble(reversed[index]),
-                                ),
-                    ),
-                  ],
-                );
-              },
-            ),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(widget.group.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 17)),
+              Text('${widget.group.members.length} members',
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 11)),
+            ]),
           ),
-          if (!showSettlements && isRecording) _recordingBar(),
-          if (!showSettlements) _composerArea(),
         ]),
-      );
+      ),
+      body: Column(children: [
+        Expanded(
+          child: StreamBuilder<List<GroupMessage>>(
+            stream: widget.database.watchMessages(widget.group.id),
+            builder: (context, snapshot) {
+              final allMessages = snapshot.data ?? [];
+              final messages =
+                  allMessages.where((item) => !item.isSettlementEvent).toList();
+              final settlements =
+                  allMessages.where((item) => item.isSettlementEvent).toList();
+              if (messages.isNotEmpty &&
+                  messages.last.createdAt > lastMarkedReadAt) {
+                lastMarkedReadAt = messages.last.createdAt;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  widget.database
+                      .markChatRead(widget.group.id, lastMarkedReadAt);
+                });
+              }
+              final selected = showSettlements ? settlements : messages;
+              final reversed = selected.reversed.toList();
+              messageIndexes = showSettlements
+                  ? const {}
+                  : {
+                      for (var index = 0; index < reversed.length; index++)
+                        reversed[index].id: index,
+                    };
+              return Column(
+                children: [
+                  _categorySelector(),
+                  Expanded(
+                    child: snapshot.connectionState == ConnectionState.waiting
+                        ? const Center(child: CircularProgressIndicator())
+                        : selected.isEmpty
+                            ? showSettlements
+                                ? _emptySettlements()
+                                : _emptyChat()
+                            : ScrollablePositionedList.builder(
+                                itemScrollController: messageScrollController,
+                                reverse: true,
+                                padding:
+                                    const EdgeInsets.fromLTRB(14, 8, 14, 12),
+                                itemCount: reversed.length,
+                                itemBuilder: (context, index) => showSettlements
+                                    ? _settlementCard(reversed[index])
+                                    : _messageBubble(reversed[index]),
+                              ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        if (!showSettlements && isRecording) _recordingBar(),
+        if (!showSettlements) _composerArea(),
+      ]),
+    );
+  }
 
   Widget _categorySelector() => Padding(
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
         child: Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainer,
+            color: Theme.of(context).brightness == Brightness.light
+                ? Colors.white
+                : const Color(0xFF061321),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Theme.of(context).dividerColor),
+            border: Border.all(
+              color: Theme.of(context).brightness == Brightness.light
+                  ? AppColors.border
+                  : const Color(0xFF24527A),
+            ),
           ),
           child: Row(children: [
             Expanded(
@@ -208,7 +217,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         color: selected
             ? (Theme.of(context).brightness == Brightness.light
                 ? AppColors.primary
-                : const Color(0xFF514987))
+                : const Color(0xFF7049E8))
             : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(

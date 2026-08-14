@@ -1,7 +1,7 @@
 name: friendlyhood_split
 description: Friendlyhood Split - a modern group wallet and expense splitting app.
 publish_to: none
-version: 1.0.9+12
+version: 1.0.9+13
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -32,6 +32,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/branding/wallet_hero_light.png
+    - assets/branding/wallet_hero_dark.png
 
 flutter_launcher_icons:
   android: true
