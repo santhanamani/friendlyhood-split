@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../theme/app_colors.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -74,7 +75,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         textAlign: TextAlign.center,
                         style:
                             Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: Colors.white60,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
                                 ),
                       ),
                       const SizedBox(height: 42),
@@ -150,11 +153,13 @@ class _AuroraBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: RadialGradient(
             center: Alignment(-.8, -.7),
             radius: 1.4,
-            colors: [Color(0x443E2F8F), Color(0xFF0B0C12)],
+            colors: Theme.of(context).brightness == Brightness.dark
+                ? const [Color(0x443E2F8F), Color(0xFF0B0C12)]
+                : const [Color(0x225B4BE8), AppColors.background],
           ),
         ),
       );

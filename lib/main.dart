@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'firebase_options.dart';
+import 'services/theme_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: kIsWeb ? DefaultFirebaseOptions.currentPlatform : null,
   );
-  runApp(const FriendlyhoodSplitApp());
+  final themeController = await AppThemeController.load();
+  runApp(FriendlyhoodSplitApp(themeController: themeController));
 }

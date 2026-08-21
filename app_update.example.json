@@ -1,8 +1,8 @@
 {
-  "latestVersion": "1.0.7",
-  "latestVersionCode": 8,
-  "apkUrl": "https://github.com/santhanamani/friendlyhood-split/releases/download/v1.0.7/app-release.apk",
+  "latestVersion": "1.0.9",
+  "latestVersionCode": 12,
+  "apkUrl": "https://github.com/santhanamani/friendlyhood-split/releases/download/v1.0.9/app-release.apk",
   "forceUpdate": false,
   "updateTitle": "New Update Available",
-  "updateMessage": "Group chat, polls, voice notes, flexible transaction dates and a refreshed BroSplit experience."
+  "updateMessage": "A consistent premium light theme across dashboards, transactions, chat, settings, dialogs, and group screens."
 }
