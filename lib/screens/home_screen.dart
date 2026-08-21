@@ -4,11 +4,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import '../models/app_models.dart';
 import '../models/currency_data.dart';
 import '../services/database_service.dart';
 import '../services/theme_controller.dart';
+import '../services/upi_payment_service.dart';
 import '../theme/app_colors.dart';
 import 'app_settings_screen.dart';
 import 'group_chat_screen.dart';
@@ -1930,7 +1932,28 @@ class _GroupScreenState extends State<GroupScreen> {
     final selected = group.members.keys.toSet();
     final title = TextEditingController();
     final amount = TextEditingController();
+    final description = TextEditingController();
     final membersScrollController = ScrollController();
+    var paymentMethod = 'manual';
+    var paymentReference = '';
+    var paymentAppStatus = '';
+    var paymentDescription = '';
+    var paymentLaunching = false;
+
+    String? validateInput() {
+      final enteredAmount = double.tryParse(amount.text.trim());
+      if (type == 'expense' && title.text.trim().isEmpty) {
+        return 'Enter the expense name';
+      }
+      if (enteredAmount == null || enteredAmount <= 0) {
+        return 'Enter a valid amount';
+      }
+      if (type == 'expense' && selected.isEmpty) {
+        return 'Select at least one member for the split';
+      }
+      return null;
+    }
+
     final save = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -2036,6 +2059,9 @@ class _GroupScreenState extends State<GroupScreen> {
                           ],
                           TextField(
                               controller: amount,
+                              onChanged: type == 'contribution'
+                                  ? (_) => setLocalState(() {})
+                                  : null,
                               keyboardType:
                                   const TextInputType.numberWithOptions(
                                       decimal: true),
@@ -2060,6 +2086,18 @@ class _GroupScreenState extends State<GroupScreen> {
                               onChanged: (value) => setLocalState(
                                   () => depositTargetValue = value!),
                             ),
+                          if (type == 'contribution') ...[
+                            const SizedBox(height: 10),
+                            TextField(
+                              controller: description,
+                              maxLength: 80,
+                              decoration: _transactionTextDecoration(
+                                context,
+                                'Payment note (optional)',
+                                Icons.notes_rounded,
+                              ),
+                            ),
+                          ],
                           if (type == 'expense') ...[
                             if (isAdmin) ...[
                               _FriendlyDropdown(
@@ -2170,30 +2208,158 @@ class _GroupScreenState extends State<GroupScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: FilledButton(
-                    onPressed: () {
-                      final enteredAmount = double.tryParse(amount.text.trim());
-                      String? warning;
-                      if (type == 'expense' && title.text.trim().isEmpty) {
-                        warning = 'Enter the expense name';
-                      } else if (enteredAmount == null || enteredAmount <= 0) {
-                        warning = 'Enter a valid amount';
-                      } else if (type == 'expense' && selected.isEmpty) {
-                        warning = 'Select at least one member for the split';
-                      }
-                      if (warning != null) {
-                        _showWarningToast(context, warning);
-                        return;
-                      }
-                      Navigator.pop(context, true);
-                    },
-                    child: Text(
-                        type == 'expense' ? 'Add expense' : 'Submit deposit'),
-                  ),
-                ),
+                if (type == 'expense')
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: FilledButton(
+                      onPressed: () {
+                        final warning = validateInput();
+                        if (warning != null) {
+                          _showWarningToast(context, warning);
+                          return;
+                        }
+                        Navigator.pop(context, true);
+                      },
+                      child: const Text('Add expense'),
+                    ),
+                  )
+                else ...[
+                  if (group.currencyCode != 'INR')
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        'UPI payments support INR groups only. You can still submit this deposit manually.',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  Row(children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: paymentLaunching
+                            ? null
+                            : () {
+                                final warning = validateInput();
+                                if (warning != null) {
+                                  _showWarningToast(context, warning);
+                                  return;
+                                }
+                                Navigator.pop(context, true);
+                              },
+                        child: const Text('Submit manually'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: paymentLaunching ||
+                                group.currencyCode != 'INR'
+                            ? null
+                            : () async {
+                                final warning = validateInput();
+                                if (warning != null) {
+                                  _showWarningToast(context, warning);
+                                  return;
+                                }
+                                setLocalState(() => paymentLaunching = true);
+                                try {
+                                  final memberTarget =
+                                      depositTargetValue.startsWith('member:');
+                                  final targetUid = memberTarget
+                                      ? depositTargetValue
+                                          .substring('member:'.length)
+                                      : '';
+                                  final targetName = memberTarget
+                                      ? (group.members[targetUid]?.name ??
+                                          'Group member')
+                                      : group.name;
+                                  final upiId = memberTarget
+                                      ? await database.getMemberUpiId(
+                                          group.id, targetUid)
+                                      : await database
+                                          .getGroupWalletUpiId(group.id);
+                                  if (upiId.isEmpty) {
+                                    if (context.mounted) {
+                                      _showWarningToast(
+                                        context,
+                                        memberTarget
+                                            ? '$targetName has not added a UPI ID yet'
+                                            : 'The admin has not added a group wallet UPI ID yet',
+                                      );
+                                    }
+                                    return;
+                                  }
+                                  final requestReference =
+                                      'BROSPLIT${const Uuid().v4().replaceAll('-', '').substring(0, 20).toUpperCase()}';
+                                  final note = description.text.trim().isEmpty
+                                      ? 'BroSplit deposit to $targetName'
+                                      : description.text.trim();
+                                  final result = await UpiPaymentService().pay(
+                                    payeeUpiId: upiId,
+                                    payeeName: targetName,
+                                    amount: double.parse(amount.text.trim()),
+                                    transactionReference: requestReference,
+                                    description: note,
+                                  );
+                                  if (!context.mounted) return;
+                                  if (!result.canCreatePendingDeposit) {
+                                    _showWarningToast(
+                                      context,
+                                      result.wasCancelled
+                                          ? 'UPI payment cancelled. No deposit was created.'
+                                          : result.status == 'failed'
+                                              ? 'UPI payment failed. No deposit was created.'
+                                              : 'Payment status was not returned. Check your payment app, then submit manually if money was debited.',
+                                    );
+                                    return;
+                                  }
+                                  paymentMethod = 'upi';
+                                  paymentReference =
+                                      result.transactionId.isNotEmpty
+                                          ? result.transactionId
+                                          : result.reference.isNotEmpty
+                                              ? result.reference
+                                              : requestReference;
+                                  paymentAppStatus = result.status;
+                                  paymentDescription = note;
+                                  Navigator.pop(context, true);
+                                } on PlatformException catch (error) {
+                                  if (context.mounted) {
+                                    _showWarningToast(
+                                      context,
+                                      error.code == 'NO_UPI_APP'
+                                          ? 'Install a UPI payment app to continue'
+                                          : 'Could not open UPI payment: ${error.message ?? error.code}',
+                                    );
+                                  }
+                                } finally {
+                                  if (context.mounted) {
+                                    setLocalState(
+                                        () => paymentLaunching = false);
+                                  }
+                                }
+                              },
+                        icon: paymentLaunching
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.open_in_new_rounded),
+                        label: Text(() {
+                          final value = double.tryParse(amount.text.trim());
+                          return value == null || value <= 0
+                              ? 'Pay with UPI'
+                              : 'Pay ₹${value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 2)}';
+                        }()),
+                      ),
+                    ),
+                  ]),
+                ],
               ],
             ),
           ),
@@ -2201,6 +2367,7 @@ class _GroupScreenState extends State<GroupScreen> {
       ),
     );
     membersScrollController.dispose();
+    description.dispose();
     final value = double.tryParse(amount.text.trim());
     if (save != true || value == null || value <= 0) return;
     if (type == 'contribution') {
@@ -2212,6 +2379,10 @@ class _GroupScreenState extends State<GroupScreen> {
             memberTarget ? depositTargetValue.substring('member:'.length) : '',
         amount: value,
         occurredAt: occurredAt.millisecondsSinceEpoch,
+        paymentMethod: paymentMethod,
+        paymentReference: paymentReference,
+        paymentAppStatus: paymentAppStatus,
+        paymentDescription: paymentDescription,
       );
     } else if (title.text.trim().isNotEmpty && selected.isNotEmpty) {
       final walletBalance = await database.getWalletBalance(group.id);
@@ -2247,7 +2418,26 @@ class GroupSettingsScreen extends StatefulWidget {
 
 class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
   late SplitGroup group = widget.group;
+  String walletUpiId = '';
+  bool walletUpiLoading = true;
   bool get isAdmin => group.ownerId == widget.currentUid;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWalletUpiId();
+  }
+
+  Future<void> _loadWalletUpiId() async {
+    try {
+      final value = await widget.database.getGroupWalletUpiId(group.id);
+      if (mounted) setState(() => walletUpiId = value);
+    } catch (_) {
+      if (mounted) setState(() => walletUpiId = '');
+    } finally {
+      if (mounted) setState(() => walletUpiLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -2349,6 +2539,26 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                     ? const Icon(Icons.chevron_right_rounded)
                     : const Icon(Icons.visibility_outlined),
                 onTap: isAdmin ? _chooseCurrency : null,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              color: Theme.of(context).brightness == Brightness.light
+                  ? AppColors.surface
+                  : null,
+              child: ListTile(
+                leading: const Icon(Icons.account_balance_wallet_outlined,
+                    color: Color(0xFF65DDBA)),
+                title: const Text('Group wallet UPI ID'),
+                subtitle: Text(walletUpiLoading
+                    ? 'Loading...'
+                    : walletUpiId.isEmpty
+                        ? 'Not set - UPI payment is unavailable'
+                        : walletUpiId),
+                trailing: isAdmin
+                    ? const Icon(Icons.edit_rounded)
+                    : const Icon(Icons.visibility_outlined),
+                onTap: isAdmin && !walletUpiLoading ? _editWalletUpiId : null,
               ),
             ),
             const SizedBox(height: 12),
@@ -2752,6 +2962,72 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           duration: const Duration(seconds: 2),
           content: Text('Currency changed to ${selected.code}')));
+    }
+  }
+
+  Future<void> _editWalletUpiId() async {
+    final controller = TextEditingController(text: walletUpiId);
+    String? validation;
+    final value = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Group wallet UPI ID'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text(
+                'Deposits paid to the group wallet will open this UPI ID. Only the admin can change it.'),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              decoration: InputDecoration(
+                labelText: 'UPI ID',
+                hintText: 'group@bank',
+                errorText: validation,
+                prefixIcon: const Icon(Icons.alternate_email_rounded),
+              ),
+            ),
+          ]),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel')),
+            if (walletUpiId.isNotEmpty)
+              TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, ''),
+                  child: const Text('Remove')),
+            FilledButton(
+              onPressed: () {
+                final draft = controller.text.trim();
+                if (!DatabaseService.isValidUpiId(draft)) {
+                  setDialogState(() => validation = 'Enter a valid UPI ID');
+                  return;
+                }
+                Navigator.pop(dialogContext, draft);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    if (value == null) return;
+    try {
+      await widget.database.updateGroupWalletUpiId(group.id, value);
+      if (!mounted) return;
+      setState(() => walletUpiId = value);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(value.isEmpty
+            ? 'Group wallet UPI ID removed'
+            : 'Group wallet UPI ID saved'),
+      ));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save UPI ID: $error')));
     }
   }
 
@@ -5001,6 +5277,17 @@ class _TransactionTile extends StatelessWidget {
                                             : 'Confirmed',
                                     valueColor:
                                         _surfaceAccent(sheetContext, accent)),
+                                _detailRow(
+                                    'Payment method',
+                                    entry.paymentMethod == 'upi'
+                                        ? 'UPI app'
+                                        : 'Manual confirmation'),
+                                if (entry.paymentReference.isNotEmpty)
+                                  _detailRow(
+                                      'UPI reference', entry.paymentReference),
+                                if (entry.paymentDescription.isNotEmpty)
+                                  _detailRow(
+                                      'Payment note', entry.paymentDescription),
                                 if (reviewer != null)
                                   _detailRow('Reviewed by', reviewer.name),
                                 if (entry.rejectionReason.isNotEmpty)

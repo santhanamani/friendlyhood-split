@@ -153,6 +153,10 @@ class LedgerEntry {
     required this.reviewedBy,
     required this.reviewedAt,
     required this.rejectionReason,
+    required this.paymentMethod,
+    required this.paymentReference,
+    required this.paymentAppStatus,
+    required this.paymentDescription,
     required this.settlements,
     required this.createdAt,
   });
@@ -173,6 +177,10 @@ class LedgerEntry {
   final String reviewedBy;
   final int reviewedAt;
   final String rejectionReason;
+  final String paymentMethod;
+  final String paymentReference;
+  final String paymentAppStatus;
+  final String paymentDescription;
   final Map<String, ExpenseSettlement> settlements;
   final int createdAt;
 
@@ -217,6 +225,10 @@ class LedgerEntry {
       reviewedBy: data['reviewedBy'] as String? ?? '',
       reviewedAt: (data['reviewedAt'] as num?)?.toInt() ?? 0,
       rejectionReason: data['rejectionReason'] as String? ?? '',
+      paymentMethod: data['paymentMethod'] as String? ?? 'manual',
+      paymentReference: data['paymentReference'] as String? ?? '',
+      paymentAppStatus: data['paymentAppStatus'] as String? ?? '',
+      paymentDescription: data['paymentDescription'] as String? ?? '',
       settlements: rawSettlements.map((key, value) => MapEntry(
             key.toString(),
             ExpenseSettlement.fromMap(

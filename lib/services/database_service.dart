@@ -12,6 +12,44 @@ class DatabaseService {
   final FirebaseDatabase _db = FirebaseDatabase.instance;
   static const _codeCharacters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
+  static bool isValidUpiId(String value) => RegExp(
+        r'^[A-Za-z0-9._-]{2,256}@[A-Za-z][A-Za-z0-9.-]{1,63}$',
+      ).hasMatch(value.trim());
+
+  Future<String> getCurrentUserUpiId() async {
+    final snapshot = await _db.ref('users/${user.uid}/upiId').get();
+    return snapshot.value?.toString().trim() ?? '';
+  }
+
+  Future<String> getMemberUpiId(String groupId, String uid) async {
+    final snapshot = await _db.ref('memberUpiIds/$groupId/$uid').get();
+    return snapshot.value?.toString().trim() ?? '';
+  }
+
+  Future<String> getGroupWalletUpiId(String groupId) async {
+    final snapshot = await _db.ref('groupWalletUpiIds/$groupId').get();
+    return snapshot.value?.toString().trim() ?? '';
+  }
+
+  Future<void> updateCurrentUserUpiId(String rawValue) async {
+    final value = rawValue.trim();
+    if (value.isNotEmpty && !isValidUpiId(value)) {
+      throw ArgumentError('Enter a valid UPI ID, for example name@bank.');
+    }
+    final membershipSnapshot = await _db.ref('groupMembers/${user.uid}').get();
+    final memberships = membershipSnapshot.value;
+    final updates = <String, Object?>{
+      'users/${user.uid}/upiId': value.isEmpty ? null : value,
+    };
+    if (memberships is Map) {
+      for (final groupId in memberships.keys.map((key) => '$key')) {
+        updates['memberUpiIds/$groupId/${user.uid}'] =
+            value.isEmpty ? null : value;
+      }
+    }
+    await _db.ref().update(updates);
+  }
+
   Stream<List<SplitGroup>> watchGroups() {
     return _db.ref('groups').onValue.map((event) {
       final value = event.snapshot.value;
@@ -335,6 +373,7 @@ class DatabaseService {
       'joinedAt': ServerValue.timestamp,
     };
     final accessCode = await _unusedAccessCode();
+    final upiId = await getCurrentUserUpiId();
     await _db.ref().update({
       'groups/$id': {
         'name': name,
@@ -347,6 +386,9 @@ class DatabaseService {
       },
       'groupMembers/${user.uid}/$id': true,
     });
+    if (upiId.isNotEmpty) {
+      await _db.ref('memberUpiIds/$id/${user.uid}').set(upiId);
+    }
     await _db.ref('joinCodes/$accessCode').set(id);
     return id;
   }
@@ -384,6 +426,7 @@ class DatabaseService {
     final members =
         Map<dynamic, dynamic>.from(groupData['members'] as Map? ?? {});
     if (members.containsKey(user.uid)) return groupId;
+    final upiId = await getCurrentUserUpiId();
     await _db.ref().update({
       'groups/$groupId/members/${user.uid}': {
         'name': user.displayName ?? 'Friend',
@@ -394,6 +437,9 @@ class DatabaseService {
       },
       'groupMembers/${user.uid}/$groupId': true,
     });
+    if (upiId.isNotEmpty) {
+      await _db.ref('memberUpiIds/$groupId/${user.uid}').set(upiId);
+    }
     return groupId;
   }
 
@@ -424,6 +470,7 @@ class DatabaseService {
         },
         'groupMembers/${member.uid}/$groupId': null,
         'chatReadState/${member.uid}/$groupId': null,
+        'memberUpiIds/$groupId/${member.uid}': null,
       });
 
   Future<void> renameGroup(String groupId, String name) =>
@@ -431,6 +478,16 @@ class DatabaseService {
 
   Future<void> updateGroupCurrency(String groupId, String currencyCode) =>
       _db.ref('groups/$groupId/currencyCode').set(currencyCode.toUpperCase());
+
+  Future<void> updateGroupWalletUpiId(String groupId, String rawValue) {
+    final value = rawValue.trim();
+    if (value.isNotEmpty && !isValidUpiId(value)) {
+      throw ArgumentError('Enter a valid UPI ID, for example group@bank.');
+    }
+    return _db
+        .ref('groupWalletUpiIds/$groupId')
+        .set(value.isEmpty ? null : value);
+  }
 
   Future<void> addExpenseCategory(String groupId, String category) {
     final value = category.trim();
@@ -449,6 +506,8 @@ class DatabaseService {
       'pollVotes/${group.id}': null,
       'messageReactions/${group.id}': null,
       'transactionReactions/${group.id}': null,
+      'memberUpiIds/${group.id}': null,
+      'groupWalletUpiIds/${group.id}': null,
       if (group.accessCode.isNotEmpty) 'joinCodes/${group.accessCode}': null,
       for (final uid in group.members.keys)
         'groupMembers/$uid/${group.id}': null,
@@ -466,6 +525,10 @@ class DatabaseService {
     required String depositTo,
     required double amount,
     required int occurredAt,
+    String paymentMethod = 'manual',
+    String paymentReference = '',
+    String paymentAppStatus = '',
+    String paymentDescription = '',
   }) {
     if (depositTarget != 'wallet' && depositTarget != 'member') {
       throw ArgumentError('Invalid deposit target.');
@@ -483,6 +546,11 @@ class DatabaseService {
       'depositTarget': depositTarget,
       'depositTo': depositTarget == 'member' ? depositTo : '',
       'status': 'pending',
+      'paymentMethod': paymentMethod,
+      if (paymentReference.isNotEmpty) 'paymentReference': paymentReference,
+      if (paymentAppStatus.isNotEmpty) 'paymentAppStatus': paymentAppStatus,
+      if (paymentDescription.trim().isNotEmpty)
+        'paymentDescription': paymentDescription.trim(),
       'splitAmong': <String, double>{},
       'createdBy': user.uid,
       'createdAt': occurredAt,

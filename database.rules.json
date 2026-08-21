@@ -57,6 +57,18 @@
         "$transactionId": {
           ".write": "auth != null && ((!data.exists() && root.child('groups').child($groupId).child('members').child(auth.uid).exists() && newData.child('createdBy').val() === auth.uid && ((newData.child('type').val() === 'expense' && ((newData.child('paymentSource').val() === 'personal' && newData.child('paidBy').val() === auth.uid && newData.child('walletUsed').val() === 0 && newData.child('personalPaid').val() === newData.child('amount').val()) || (newData.child('paymentSource').val() === 'wallet' && root.child('groups').child($groupId).child('ownerId').val() === auth.uid && newData.child('paidBy').val() === auth.uid && newData.child('walletUsed').val() >= 0 && newData.child('walletUsed').val() <= newData.child('amount').val() && newData.child('personalPaid').val() >= 0 && newData.child('personalPaid').val() <= newData.child('amount').val()))) || (newData.child('type').val() === 'contribution' && newData.child('paidBy').val() === auth.uid && newData.child('status').val() === 'pending' && ((newData.child('depositTarget').val() === 'wallet' && newData.child('depositTo').val() === '') || (newData.child('depositTarget').val() === 'member' && newData.child('depositTo').val() !== auth.uid && root.child('groups').child($groupId).child('members').child(newData.child('depositTo').val()).exists()))))) || (data.exists() && root.child('groups').child($groupId).child('ownerId').val() === auth.uid) || (data.exists() && data.child('type').val() === 'contribution' && data.child('status').val() === 'pending' && ((!newData.exists() && data.child('createdBy').val() === auth.uid) || (newData.exists() && data.child('createdBy').val() === auth.uid && newData.child('status').val() === 'pending' && newData.child('type').val() === data.child('type').val() && newData.child('createdBy').val() === data.child('createdBy').val() && newData.child('paidBy').val() === data.child('paidBy').val()) || (newData.exists() && (newData.child('status').val() === 'confirmed' || newData.child('status').val() === 'rejected') && (root.child('groups').child($groupId).child('ownerId').val() === auth.uid || (data.child('depositTarget').val() === 'member' && data.child('depositTo').val() === auth.uid)) && newData.child('type').val() === data.child('type').val() && newData.child('amount').val() === data.child('amount').val() && newData.child('paidBy').val() === data.child('paidBy').val() && newData.child('createdBy').val() === data.child('createdBy').val() && newData.child('createdAt').val() === data.child('createdAt').val() && newData.child('depositTarget').val() === data.child('depositTarget').val() && newData.child('depositTo').val() === data.child('depositTo').val() && newData.child('reviewedBy').val() === auth.uid && newData.child('reviewedAt').isNumber()))))",
           ".validate": "!newData.exists() || (newData.hasChildren(['type', 'title', 'amount', 'paidBy', 'createdBy', 'createdAt']) && newData.child('amount').isNumber() && newData.child('amount').val() > 0 && ((newData.child('type').val() === 'expense' && newData.hasChildren(['paymentSource', 'walletUsed', 'personalPaid', 'splitAmong'])) || (newData.child('type').val() === 'contribution' && ((!newData.child('depositTarget').exists()) || (newData.hasChildren(['depositTarget', 'depositTo', 'status']) && (newData.child('depositTarget').val() === 'wallet' || newData.child('depositTarget').val() === 'member') && (newData.child('status').val() === 'pending' || newData.child('status').val() === 'confirmed' || newData.child('status').val() === 'rejected') && ((newData.child('depositTarget').val() === 'wallet' && newData.child('depositTo').val() === '') || (newData.child('depositTarget').val() === 'member' && newData.child('depositTo').val() !== newData.child('paidBy').val() && root.child('groups').child($groupId).child('members').child(newData.child('depositTo').val()).exists())) && (!newData.child('rejectionReason').exists() || (newData.child('rejectionReason').isString() && newData.child('rejectionReason').val().length <= 120)))))))",
+          "paymentMethod": {
+            ".validate": "!newData.exists() || (newData.isString() && (newData.val() === 'manual' || newData.val() === 'upi'))"
+          },
+          "paymentReference": {
+            ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 100)"
+          },
+          "paymentAppStatus": {
+            ".validate": "!newData.exists() || (newData.isString() && (newData.val() === 'success' || newData.val() === 'submitted'))"
+          },
+          "paymentDescription": {
+            ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 120)"
+          },
           "settlements": {
             "$memberUid": {
               ".write": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists() && root.child('transactions').child($groupId).child($transactionId).child('type').val() === 'expense' && root.child('transactions').child($groupId).child($transactionId).child('paymentSource').val() === 'personal' && root.child('transactions').child($groupId).child($transactionId).child('splitAmong').child($memberUid).exists() && root.child('transactions').child($groupId).child($transactionId).child('paidBy').val() !== $memberUid && (($memberUid === auth.uid && !data.exists() && newData.child('status').val() === 'pending' && newData.child('requestedBy').val() === auth.uid && newData.child('requestedAt').isNumber()) || (newData.child('status').val() === 'confirmed' && (((root.child('transactions').child($groupId).child($transactionId).child('paidBy').val() === auth.uid) && data.child('status').val() === 'pending') || root.child('groups').child($groupId).child('ownerId').val() === auth.uid) && newData.child('confirmedBy').val() === auth.uid && newData.child('confirmedAt').isNumber()))",
@@ -114,6 +126,23 @@
             ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 8)"
           }
         }
+      }
+    },
+    "memberUpiIds": {
+      "$groupId": {
+        ".read": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
+        ".write": "auth != null && !newData.exists() && root.child('groups').child($groupId).child('ownerId').val() === auth.uid",
+        "$uid": {
+          ".write": "auth != null && (($uid === auth.uid && root.child('groups').child($groupId).child('members').child(auth.uid).exists()) || (!newData.exists() && root.child('groups').child($groupId).child('ownerId').val() === auth.uid))",
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length >= 4 && newData.val().length <= 320 && newData.val().matches(/^[A-Za-z0-9._-]+@[A-Za-z][A-Za-z0-9.-]+$/))"
+        }
+      }
+    },
+    "groupWalletUpiIds": {
+      "$groupId": {
+        ".read": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
+        ".write": "auth != null && root.child('groups').child($groupId).child('ownerId').val() === auth.uid",
+        ".validate": "!newData.exists() || (newData.isString() && newData.val().length >= 4 && newData.val().length <= 320 && newData.val().matches(/^[A-Za-z0-9._-]+@[A-Za-z][A-Za-z0-9.-]+$/))"
       }
     },
     "chatReadState": {
